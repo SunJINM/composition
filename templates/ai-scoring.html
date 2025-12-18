@@ -80,7 +80,119 @@
             align-items: stretch;
         }
 
-        .essay-content-section,
+        /* 核心修改：作文内容分栏样式 */
+        .essay-content-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .essay-content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+            align-items: start;
+        }
+
+        /* 答卷图片容器 */
+        .essay-image-container {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .essay-image-container:hover {
+            border-color: #667eea;
+            box-shadow: 0 0 10px rgba(102, 126, 234, 0.2);
+        }
+
+        .image-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .essay-image {
+            max-width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: 4px;
+            transition: transform 0.3s ease;
+        }
+
+        .no-image-text {
+            color: #999;
+            font-size: 16px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* 文本内容容器 */
+        .essay-text-container {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+            height: 100%;
+        }
+
+        /* 图片放大模态框样式 */
+        .image-modal {
+            display: none; /* 默认隐藏 */
+            position: fixed;
+            z-index: 9999;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.9); /* 黑色背景带透明度 */
+        }
+
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+            animation: zoom 0.4s;
+        }
+
+        @keyframes zoom {
+            from {transform: scale(0.1)}
+            to {transform: scale(1)}
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .close-modal:hover,
+        .close-modal:focus {
+            color: #bbb;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
         .essay-requirement-section {
             background: #f8f9fa;
             padding: 20px;
@@ -155,6 +267,7 @@
             overflow-y: auto;
             border: 2px solid #ddd;
             font-size: 15px;
+            height: 100%;
         }
 
         .form-group {
@@ -563,9 +676,23 @@
             font-size: 14px;
         }
 
+        /* 响应式调整 */
         @media (max-width: 1400px) {
             .essay-display {
                 grid-template-columns: 1fr;
+            }
+
+            .essay-content-grid {
+                grid-template-columns: 1fr; /* 小屏幕下图片和文本竖向排列 */
+                gap: 15px;
+            }
+            
+            .essay-image-container {
+                min-height: 300px;
+            }
+            
+            .essay-image {
+                max-height: 300px;
             }
 
             .main-content {
@@ -597,10 +724,22 @@
 
         <!-- 作文展示区域(横向布局) -->
         <div class="essay-display">
-            <!-- 作文内容 (2/3宽度) -->
+            <!-- 作文内容 (2/3宽度) - 核心修改：拆分为图片+文本两栏 -->
             <div class="section essay-content-section">
                 <h3>📖 作文内容 <span id="wordCount" style="color: #ff9800; font-size: 0.9em; font-weight: normal;"></span></h3>
-                <div class="text-content" id="essayContent"></div>
+                <div class="essay-content-grid">
+                    <!-- 左边：答卷图片 -->
+                    <div class="essay-image-container">
+                        <div class="image-wrapper" id="essayImageWrapper">
+                            <img id="essayImage" src="" alt="作文答卷图片" class="essay-image" style="display: none;">
+                            <div class="no-image-text" id="noImageText">暂无答卷图片</div>
+                        </div>
+                    </div>
+                    <!-- 右边：文本内容 -->
+                    <div class="essay-text-container">
+                        <div class="text-content" id="essayContent"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- 作文题目和要求 (1/3宽度) -->
@@ -727,6 +866,13 @@
                                     <input type="radio" name="whichAccurate" value="ai"> AI评分更准确
                                 </label>
                             </div>
+                            <!-- 新增：个人认为合适的评分输入框 -->
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label>个人认为合适的评分（整数）</label>
+                                <input type="number" id="userScore" min="0" step="1" placeholder="请输入整数评分（如40）" 
+                                       style="width: 100%; padding: 12px; border: 2px solid #667eea; border-radius: 8px; font-size: 14px;">
+                            </div>
+
                             <div class="form-group" style="margin-bottom: 15px;">
                                 <label>反馈理由（可选）</label>
                                 <textarea id="feedbackReason" placeholder="请输入反馈理由（例如：原始评分更贴合题目要求）..." style="min-height: 100px;"></textarea>
@@ -753,6 +899,12 @@
                 <button class="jump-btn" onclick="jumpToPage()">跳转</button>
             </div>
         </div>
+    </div>
+
+    <!-- 新增：图片放大模态框 -->
+    <div id="imageModal" class="image-modal">
+        <span class="close-modal">&times;</span>
+        <img class="modal-content" id="modalImage">
     </div>
 
     <div class="message" id="message"></div>
@@ -1030,7 +1182,7 @@
             `;
         }
 
-        // 渲染作文数据到页面
+        // 渲染作文数据到页面 - 核心修改：添加图片渲染逻辑
         function renderEssayData(essay) {
             // 显示学生信息
             document.getElementById('studentName').textContent = `学生: ${essay.student_name || '未知'}`;
@@ -1038,6 +1190,25 @@
 
             // 显示作文内容
             document.getElementById('essayContent').textContent = essay.essay_content || '无作文内容';
+
+            // 渲染作文图片
+            const essayImage = document.getElementById('essayImage');
+            const noImageText = document.getElementById('noImageText');
+            if (essay.essay_image_path) {
+                // 处理图片URL：如果是相对路径则拼接API_BASE（去掉/api后缀）
+                let imageUrl = essay.essay_image_path;
+                if (!imageUrl.startsWith('http')) {
+                    const baseUrl = API_BASE.replace(/\/api$/, '');
+                    imageUrl = `${baseUrl}${imageUrl}`;
+                }
+                essayImage.src = imageUrl;
+                essayImage.style.display = 'block';
+                noImageText.style.display = 'none';
+            } else {
+                essayImage.src = '';
+                essayImage.style.display = 'none';
+                noImageText.style.display = 'block';
+            }
 
             // 统计并显示字数（优先用接口返回的word_count，没有则计算）
             const wordCount = essay.word_count || (essay.essay_content ? essay.essay_content.replace(/\s/g, '').length : 0);
@@ -1826,14 +1997,15 @@
 
         // 提交评分对比反馈
         async function submitComparisonFeedback() {
-            // 1. 获取参数
+            // 1. 获取参数（新增userScore）
             const evaluationId = currentEvaluationId;
             const scoreId = document.getElementById('scoreRecordSelect').value;
             const userPhone = getCurrentUserPhone();
             const whichAccurate = document.querySelector('input[name="whichAccurate"]:checked').value;
+            const userScore = parseInt(document.getElementById('userScore').value.trim()); // 新增
             const reason = document.getElementById('feedbackReason').value.trim();
-        
-            // 2. 前置校验
+
+            // 2. 前置校验（新增userScore的整数校验）
             if (!evaluationId) {
                 showMessage('⚠️ 请先选择评价记录', 'error');
                 return;
@@ -1846,6 +2018,10 @@
                 showMessage('⚠️ 请先登录', 'error');
                 return;
             }
+            if (isNaN(userScore) || userScore < 0) { // 新增：校验整数且非负
+                showMessage('⚠️ 请输入有效的非负整数评分', 'error');
+                return;
+            }
         
             // 3. 按钮加载状态
             const btn = document.getElementById('submitFeedbackBtn');
@@ -1854,7 +2030,7 @@
             btn.innerHTML = '<span class="loading-spinner"></span> 提交中...';
         
             try {
-                // 4. 调用接口
+                // 4. 调用接口（新增user_score参数）
                 const response = await fetch(`${API_BASE}/feedbacks/comparison`, {
                     method: 'POST',
                     headers: {
@@ -1865,6 +2041,7 @@
                         score_id: scoreId,
                         user_phone: userPhone,
                         which_accurate: whichAccurate,
+                        user_score: userScore, // 新增：传递个人评分
                         reason: reason
                     })
                 });
@@ -1873,7 +2050,8 @@
                 if (response.ok) {
                     const result = await response.json();
                     showMessage('✅ 反馈提交成功', 'success');
-                    document.getElementById('feedbackReason').value = ''; // 清空输入框
+                    document.getElementById('userScore').value = ''; // 清空输入框
+                    document.getElementById('feedbackReason').value = '';
                 } else {
                     const error = await response.json().catch(() => ({ detail: '提交失败，请重试' }));
                     showMessage(`❌ 反馈提交失败: ${error.detail}`, 'error');
@@ -1905,21 +2083,66 @@
             }, 3000);
         }
 
+        // 核心新增：图片放大模态框交互逻辑
+        function initImageModal() {
+            const modal = document.getElementById('imageModal');
+            const modalImg = document.getElementById('modalImage');
+            const imgContainer = document.querySelector('.essay-image-container');
+            const closeBtn = document.querySelector('.close-modal');
+
+            // 点击图片容器打开模态框
+            imgContainer.addEventListener('click', function() {
+                const essayImg = document.getElementById('essayImage');
+                if (essayImg.src) {
+                    modal.style.display = 'block';
+                    modalImg.src = essayImg.src;
+                    // 禁止页面滚动
+                    document.body.style.overflow = 'hidden';
+                }
+            });
+
+            // 点击关闭按钮关闭模态框
+            closeBtn.addEventListener('click', function() {
+                modal.style.display = 'none';
+                // 恢复页面滚动
+                document.body.style.overflow = 'auto';
+            });
+
+            // 点击模态框背景关闭模态框
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                }
+            });
+
+            // 按ESC键关闭模态框
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && modal.style.display === 'block') {
+                    modal.style.display = 'none';
+                    document.body.style.overflow = 'auto';
+                }
+            });
+        }
+
         // 页面初始化
         window.addEventListener('DOMContentLoaded', async function() {
-            // 1. 验证登录状态
+            // 1. 初始化图片放大模态框
+            initImageModal();
+            
+            // 2. 验证登录状态
             const userPhone = getCurrentUserPhone();
             if (!userPhone) {
                 showMessage('⚠️ 未检测到登录状态，部分功能可能受限', 'error');
             }
             
-            // 2. 加载提示词列表（评价+评分）
+            // 3. 加载提示词列表（评价+评分）
             await loadPrompts();
             
-            // 3. 加载所有作文列表（用于分页）
+            // 4. 加载所有作文列表（用于分页）
             await loadAllEssays();
             
-            // 4. 从URL获取作文ID并加载详情
+            // 5. 从URL获取作文ID并加载详情
             const essayId = getEssayIdFromURL();
             if (essayId) {
                 await loadEssayDetail(essayId);

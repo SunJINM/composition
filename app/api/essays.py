@@ -72,6 +72,7 @@ async def get_essays(
                 "id": essay.id,
                 "batch_id": essay.batch_id,
                 "batch_title": essay.batch.essay_title if essay.batch else "",
+                "essay_image_path": essay.essay_image_path,
                 "student_name": essay.student_name,
                 "word_count": essay.word_count,
                 "score_system": essay.score_system,

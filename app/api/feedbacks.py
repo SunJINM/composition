@@ -49,6 +49,7 @@ async def submit_comparison_feedback(
         # 构建反馈数据
         feedback_data = {
             "which_accurate": request.which_accurate,
+            "user_score": request.user_score,
             "reason": request.reason
         }
 

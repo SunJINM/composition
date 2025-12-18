@@ -12,6 +12,7 @@ class FeedbackComparisonRequest(BaseModel):
     score_id: int = Field(..., description="评分ID")
     user_phone: str = Field(..., description="用户手机号")
     which_accurate: str = Field(..., description="哪个更准确(original/ai)")
+    user_score: int = Field(default=0, description="更合适的评分")
     reason: Optional[str] = Field(None, description="选择理由")
 
 

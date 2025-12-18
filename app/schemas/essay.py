@@ -25,6 +25,7 @@ class EssayListItem(BaseModel):
     id: int
     batch_id: int
     batch_title: str
+    essay_image_path: str
     student_name: Optional[str]
     word_count: int
     score_system: int

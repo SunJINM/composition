@@ -163,13 +163,106 @@
             justify-content: space-between;
             align-items: flex-start;
             margin-bottom: 15px;
+            gap: 20px;
+        }
+
+        .essay-title-wrap {
+            flex: 1;
         }
 
         .essay-title {
             font-size: 1.3em;
             color: #333;
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        /* 答卷图片样式 */
+        .essay-image-container {
+            margin-bottom: 10px;
+        }
+
+        .essay-thumbnail {
+            width: 140px;
+            height: 90px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .essay-thumbnail:hover {
+            border-color: #667eea;
+            transform: scale(1.05);
+        }
+
+        .thumbnail-placeholder {
+            width: 140px;
+            height: 90px;
+            border-radius: 8px;
+            border: 2px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 0.9em;
+            text-align: center;
+            padding: 5px;
+        }
+
+        /* 图片预览弹窗 */
+        .image-preview-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .image-preview-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            max-height: 90vh;
+            border-radius: 8px;
+        }
+
+        .close-preview {
+            position: absolute;
+            top: -20px;
+            right: -20px;
+            width: 40px;
+            height: 40px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            z-index: 1001;
+        }
+
+        .close-preview:hover {
+            background: #d32f2f;
         }
 
         .essay-meta {
@@ -338,6 +431,18 @@
                 flex-direction: column;
                 gap: 15px;
             }
+
+            /* 响应式图片样式 */
+            .essay-thumbnail, .thumbnail-placeholder {
+                width: 100%;
+                height: auto;
+                min-height: 120px;
+            }
+
+            .close-preview {
+                top: 10px;
+                right: 10px;
+            }
         }
     </style>
 </head>
@@ -391,6 +496,14 @@
         </div>
     </div>
 
+    <!-- 图片预览弹窗 -->
+    <div class="image-preview-modal" id="imagePreviewModal">
+        <div class="image-preview-content">
+            <button class="close-preview" onclick="closeImagePreview()">×</button>
+            <img src="" alt="作文答卷预览" class="preview-image" id="previewImage">
+        </div>
+    </div>
+
     <script>
         const API_BASE = '/api';
         let currentPage = 1;
@@ -411,6 +524,13 @@
                 }
             });
         });
+
+        // 字符串截断工具函数 (最多15个字)
+        function truncateString(str, maxLength = 15) {
+            if (!str || str.trim() === '') return '无标题';
+            str = str.trim();
+            return str.length > maxLength ? str.substring(0, maxLength) + '...' : str;
+        }
 
         // 加载用户信息
         async function loadUserInfo() {
@@ -437,7 +557,7 @@
                 data.batches.forEach(batch => {
                     const option = document.createElement('option');
                     option.value = batch.id;
-                    option.textContent = `${batch.essay_title.substring(0, 30)}${batch.essay_title.length > 30 ? '...' : ''}`;
+                    option.textContent = truncateString(batch.essay_title, 30);
                     select.appendChild(option);
                 });
             } catch (error) {
@@ -487,12 +607,33 @@
                 const evalDate = essay.latest_evaluation_date
                     ? new Date(essay.latest_evaluation_date).toLocaleDateString()
                     : '未评价';
+                const truncatedTitle = truncateString(essay.batch_title);
+                
+                // 构建图片HTML
+                let imageHtml = '';
+                if (essay.essay_image_path) {
+                    imageHtml = `
+                        <div class="essay-image-container">
+                            <img src="${essay.essay_image_path}" 
+                                 alt="${truncatedTitle} - ${essay.student_name}的答卷" 
+                                 class="essay-thumbnail" 
+                                 onclick="openImagePreview('${essay.essay_image_path}')">
+                        </div>
+                    `;
+                } else {
+                    imageHtml = `
+                        <div class="essay-image-container">
+                            <div class="thumbnail-placeholder">暂无答卷图片</div>
+                        </div>
+                    `;
+                }
 
                 html += `
                     <div class="essay-card">
                         <div class="essay-card-header">
-                            <div>
-                                <div class="essay-title">📄 ${essay.batch_title || '无标题'}</div>
+                            <div class="essay-title-wrap">
+                                <div class="essay-title">📄 ${truncatedTitle}</div>
+                                ${imageHtml}
                             </div>
                             <button class="enter-btn" onclick="enterScoring(${essay.id})">
                                 进入评分 →
@@ -589,6 +730,40 @@
             localStorage.removeItem('userPhone');
             window.location.href = 'login.html';
         }
+
+        // 打开图片预览
+        function openImagePreview(imageUrl) {
+            const modal = document.getElementById('imagePreviewModal');
+            const previewImg = document.getElementById('previewImage');
+            
+            // 清空原有图片，避免加载闪烁
+            previewImg.src = '';
+            previewImg.onload = function() {
+                modal.style.display = 'flex';
+            };
+            previewImg.src = imageUrl;
+            
+            // 点击空白处关闭
+            modal.onclick = function(e) {
+                if (e.target === modal) {
+                    closeImagePreview();
+                }
+            };
+        }
+
+        // 关闭图片预览
+        function closeImagePreview() {
+            const modal = document.getElementById('imagePreviewModal');
+            modal.style.display = 'none';
+            document.getElementById('previewImage').src = '';
+        }
+
+        // 按ESC键关闭预览
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeImagePreview();
+            }
+        });
     </script>
 </body>
 </html>

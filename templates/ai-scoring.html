@@ -228,12 +228,12 @@
             transform: translateY(-2px);
         }
 
-        /* 新增：评价/评分记录选择器样式 */
+        /* 评价/评分记录选择器样式 */
         .record-selector {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin: 15px 0;
+            margin: 0 0 15px 0; /* 调整margin，适配结果区域内的布局 */
             flex-wrap: wrap;
             padding: 10px;
             background: #f0f8ff;
@@ -258,7 +258,7 @@
         .record-info {
             font-size: 13px;
             color: #666;
-            margin: 5px 0 10px 0;
+            margin: 0 0 15px 0; /* 调整margin，适配结果区域内的布局 */
             padding: 8px;
             background: #f8f9fa;
             border-radius: 6px;
@@ -635,8 +635,14 @@
                     <div class="form-group">
                         <textarea id="analyzePromptContent" placeholder="作文评价提示词内容"></textarea>
                     </div>
-                    
-                    <!-- 新增：评价记录选择器 -->
+                    <button class="score-btn" id="analyzeBtn" onclick="performAnalysis()">
+                        🔍 第一步:分析作文
+                    </button>
+                </div>
+
+                <!-- 作文分析结果（评价记录移到此处） -->
+                <div class="section" id="analysisSection" style="display: none;">
+                    <!-- 评价记录选择器（核心调整：移到结果区域内） -->
                     <div class="record-selector">
                         <label>评价记录:</label>
                         <select id="evaluationRecordSelect" onchange="onEvaluationRecordChange()">
@@ -647,13 +653,6 @@
                         暂无评价记录 | 点击"第一步:分析作文"创建新评价
                     </div>
                     
-                    <button class="score-btn" id="analyzeBtn" onclick="performAnalysis()">
-                        🔍 第一步:分析作文
-                    </button>
-                </div>
-
-                <!-- 作文分析结果 -->
-                <div class="section" id="analysisSection" style="display: none;">
                     <h3>📋 作文分析结果</h3>
                     <div class="analysis-content" id="analysisContent">
                         <!-- 动态生成 -->
@@ -677,8 +676,14 @@
                     <div class="form-group">
                         <textarea id="scorePromptContent" placeholder="作文评分提示词内容"></textarea>
                     </div>
-                    
-                    <!-- 新增：评分记录选择器 -->
+                    <button class="score-btn" id="scoreBtn" onclick="performScoring()" disabled>
+                        🎯 第二步:AI评分
+                    </button>
+                </div>
+
+                <!-- 评分结果对比（评分记录移到此处） -->
+                <div class="section">
+                    <!-- 评分记录选择器（核心调整：移到结果区域内） -->
                     <div class="record-selector">
                         <label>评分记录:</label>
                         <select id="scoreRecordSelect" onchange="onScoreRecordChange()">
@@ -689,13 +694,6 @@
                         暂无评分记录 | 完成分析后可进行评分
                     </div>
                     
-                    <button class="score-btn" id="scoreBtn" onclick="performScoring()" disabled>
-                        🎯 第二步:AI评分
-                    </button>
-                </div>
-
-                <!-- 评分结果对比 -->
-                <div class="section">
                     <h3>📊 评分结果对比</h3>
                     <div class="scores-section">
                         <div class="score-comparison">
@@ -838,7 +836,7 @@
             }
         }
 
-        // 新增：加载作文评价记录
+        // 加载作文评价记录
         async function loadEvaluationRecords() {
             if (!currentEssayId) return;
 
@@ -850,24 +848,29 @@
                 // 渲染评价记录下拉框
                 renderEvaluationRecords();
                 
-                // 如果有评价记录，默认选中最新的
+                // 如果有评价记录，默认选中最新的 + 显示分析区域（核心调整：因为选择器移到分析结果区域了）
                 if (evaluationRecords.length > 0) {
                     const latestEval = evaluationRecords.find(item => item.is_latest) || evaluationRecords[0];
                     currentEvaluationId = latestEval.evaluation_id;
                     document.getElementById('evaluationRecordSelect').value = currentEvaluationId;
-                    
+                    // 显示分析区域（关键：有评价记录就显示）
+                    document.getElementById('analysisSection').style.display = 'block';
                     // 加载该评价的分析结果
                     onEvaluationRecordChange();
+                } else {
+                    // 无记录则隐藏分析区域
+                    document.getElementById('analysisSection').style.display = 'none';
                 }
             } catch (error) {
                 console.error('加载评价记录失败:', error);
                 showMessage('❌ 加载评价记录失败: ' + error.message, 'error');
                 evaluationRecords = [];
                 renderEvaluationRecords();
+                document.getElementById('analysisSection').style.display = 'none';
             }
         }
 
-        // 新增：渲染评价记录下拉框
+        // 渲染评价记录下拉框
         function renderEvaluationRecords() {
             const evalSelect = document.getElementById('evaluationRecordSelect');
             const evalInfo = document.getElementById('evaluationRecordInfo');
@@ -898,7 +901,7 @@
             `;
         }
 
-        // 新增：评价记录切换事件
+        // 评价记录切换事件
         function onEvaluationRecordChange() {
             const evalId = document.getElementById('evaluationRecordSelect').value;
             if (!evalId) {
@@ -933,13 +936,13 @@
             
             // 如果有评分记录，默认选中第一个
             if (scoreRecords.length > 0) {
-                currentScoreId = scoreRecords[0].score_id;
-                document.getElementById('scoreRecordSelect').value = currentScoreId;
+                const firstScore = scoreRecords[0];
+                document.getElementById('scoreRecordSelect').value = firstScore.score_id;
                 onScoreRecordChange();
             }
         }
 
-        // 新增：渲染评分记录下拉框
+        // 渲染评分记录下拉框
         function renderScoreRecords() {
             const scoreSelect = document.getElementById('scoreRecordSelect');
             const scoreInfo = document.getElementById('scoreRecordInfo');
@@ -971,7 +974,7 @@
             `;
         }
 
-        // 新增：评分记录切换事件
+        // 评分记录切换事件
         function onScoreRecordChange() {
             const scoreId = document.getElementById('scoreRecordSelect').value;
             if (!scoreId) {
@@ -994,6 +997,18 @@
                 total_score: selectedScore.total_score,
                 dimensions: selectedScore.dimension_scores
             });
+
+            // 更新评分信息提示
+            const scoreInfo = document.getElementById('scoreRecordInfo');
+            const scoreType = selectedScore.score_type === 'ai' ? 'AI评分' : '人工评分';
+            const createTime = new Date(selectedScore.create_date).toLocaleString();
+            scoreInfo.innerHTML = `
+                选中: ${scoreType} | 
+                创建时间: ${createTime} | 
+                评分人: ${selectedScore.user_phone} | 
+                评分模板: ${selectedScore.score_prompt_version} | 
+                ${selectedScore.is_default ? '默认评分' : '非默认评分'}
+            `;
         }
 
         // 渲染作文数据到页面
@@ -1405,14 +1420,14 @@
                 return;
             }
 
-            // 新增：检查用户手机号
+            // 检查用户手机号
             const userPhone = getCurrentUserPhone();
             if (!userPhone) {
                 showMessage('⚠️ 请先登录', 'error');
                 return;
             }
 
-            // 新增：获取分析提示词ID
+            // 获取分析提示词ID
             const analyzePromptId = parseInt(document.getElementById('analyzePromptSelect').value);
             if (isNaN(analyzePromptId)) {
                 showMessage('⚠️ 请选择有效的评价提示词版本', 'error');
@@ -1454,7 +1469,7 @@
             
                 if (result.success) {
                     currentAnalysis = result.analysis;
-                    currentEvaluationId = result.evaluation_id; // 新增：保存评价ID
+                    currentEvaluationId = result.evaluation_id; // 保存评价ID
                     displayAnalysis(result.analysis);
                     // 启用评分按钮
                     document.getElementById('scoreBtn').disabled = false;
@@ -1676,34 +1691,6 @@
             section.style.display = 'block';
         }
 
-        // 新增：评分记录切换事件
-        function onScoreRecordChange() {
-            const scoreId = document.getElementById('scoreRecordSelect').value;
-            if (!scoreId) return;
-
-            // 查找选中的评分记录
-            const selectedScore = scoreRecords.find(item => item.score_id == scoreId);
-            if (!selectedScore) return;
-
-            // 显示该评分的结果
-            displayAIScores({
-                total_score: selectedScore.total_score,
-                dimensions: selectedScore.dimension_scores
-            });
-
-            // 更新评分信息提示
-            const scoreInfo = document.getElementById('scoreRecordInfo');
-            const scoreType = selectedScore.score_type === 'ai' ? 'AI评分' : '人工评分';
-            const createTime = new Date(selectedScore.create_date).toLocaleString();
-            scoreInfo.innerHTML = `
-                选中: ${scoreType} | 
-                创建时间: ${createTime} | 
-                评分人: ${selectedScore.user_phone} | 
-                评分模板: ${selectedScore.score_prompt_version} | 
-                ${selectedScore.is_default ? '默认评分' : '非默认评分'}
-            `;
-        }
-
         // 执行AI评分(第二步)
         async function performScoring() {
             if (!currentEssay) {
@@ -1711,20 +1698,20 @@
                 return;
             }
 
-            // 新增：校验前置条件
+            // 校验前置条件
             if (!currentEvaluationId) {
                 showMessage('⚠️ 请先完成作文分析获取评价ID', 'error');
                 return;
             }
 
-            // 新增：检查用户手机号
+            // 检查用户手机号
             const userPhone = getCurrentUserPhone();
             if (!userPhone) {
                 showMessage('⚠️ 请先登录', 'error');
                 return;
             }
 
-            // 新增：获取评分提示词ID并校验
+            // 获取评分提示词ID并校验
             const scorePromptId = parseInt(document.getElementById('scorePromptSelect').value);
             if (isNaN(scorePromptId)) {
                 showMessage('⚠️ 请选择有效的评分提示词版本', 'error');
@@ -1757,7 +1744,7 @@
                         prompt: promptContent,
                         analysis: currentAnalysis,  // 分析结果(可选)
                         original_score_data: currentEssay.original_score_data,  // 原始评分数据(用于判断分制)
-                        // 新增/替换：三个必填参数
+                        // 三个必填参数
                         evaluation_id: currentEvaluationId, // 分析接口返回的评价ID
                         score_prompt_id: scorePromptId,     // 评分提示词ID
                         user_phone: userPhone               // 用户手机号
@@ -1830,29 +1817,37 @@
             messageEl.style.background = type === 'success' ? '#4caf50' : '#f44336';
             messageEl.style.display = 'block';
 
+            // 3秒后自动隐藏
             setTimeout(() => {
                 messageEl.style.display = 'none';
             }, 3000);
         }
 
-        // 页面加载完成后初始化
+        // 页面初始化
         window.addEventListener('DOMContentLoaded', async function() {
-            // 验证登录状态
+            // 1. 验证登录状态
             const userPhone = getCurrentUserPhone();
-            if (!userPhone) return;
+            if (!userPhone) {
+                showMessage('⚠️ 未检测到登录状态，部分功能可能受限', 'error');
+            }
             
-            // 1. 加载提示词（优先加载）
+            // 2. 加载提示词列表（评价+评分）
             await loadPrompts();
             
-            // 2. 加载所有作文列表（用于分页）
+            // 3. 加载所有作文列表（用于分页）
             await loadAllEssays();
             
-            // 3. 获取URL中的作文ID并加载详情
+            // 4. 从URL获取作文ID并加载详情
             const essayId = getEssayIdFromURL();
             if (essayId) {
                 await loadEssayDetail(essayId);
             } else {
-                showMessage('⚠️ 未指定作文ID', 'error');
+                // 如果URL无作文ID，且有作文列表则加载第一个
+                if (essaysData.length > 0) {
+                    await loadEssayDetail(essaysData[0].id);
+                } else {
+                    showMessage('⚠️ 暂无作文数据', 'error');
+                }
             }
         });
     </script>

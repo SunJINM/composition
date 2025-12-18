@@ -676,52 +676,123 @@
     <script>
         const API_BASE = 'http://localhost:8008/api';
         // const API_BASE = 'http://192.168.3.88:8008/api';
-        let essaysData = [];
-        let currentIndex = -1;
+        let essaysData = [];          // 所有作文列表（用于分页）
+        let currentEssay = null;      // 当前作文详情
+        let currentEssayId = null;    // 当前作文ID
+        let currentIndex = -1;        // 当前作文在列表中的索引（用于分页）
         let analyzePromptsData = [];  // 分析提示词
         let scorePromptsData = [];     // 评分提示词
-        let essaysRequireData = [];    // 作文题目和要求数据
-        let selectedAnalyzeVersion = null;
-        let selectedScoreVersion = null;
-        let currentAnalysis = null;  // 存储当前作文的分析结果
+        let currentAnalysis = null;   // 存储当前作文的分析结果
 
-        // 从URL获取作文索引
-        function getEssayIndexFromURL() {
+        // 从URL获取作文ID
+        function getEssayIdFromURL() {
             const params = new URLSearchParams(window.location.search);
-            return parseInt(params.get('index')) || 0;
+            return parseInt(params.get('essay_id')) || null;
         }
 
-        // 更新URL中的索引
+        // 更新URL中的作文ID
         function updateURL() {
-            const newURL = `${window.location.pathname}?index=${currentIndex}`;
+            if (!currentEssayId) return;
+            const newURL = `${window.location.pathname}?essay_id=${currentEssayId}`;
             window.history.pushState({}, '', newURL);
         }
 
-        // 加载所有作文数据
+        // 加载所有作文列表（用于分页）
         async function loadAllEssays() {
             try {
                 const response = await fetch(`${API_BASE}/essays`);
                 const data = await response.json();
-                essaysData = data.essays;
-
-                // 从URL获取初始索引
-                currentIndex = getEssayIndexFromURL();
-                if (currentIndex >= essaysData.length) {
-                    currentIndex = 0;
-                }
-
-                // 加载当前作文
-                loadCurrentEssay();
-                updatePagination();
-
+                essaysData = data.essays || [];
+                console.log('所有作文列表加载完成:', essaysData.length, '条');
             } catch (error) {
-                showMessage('加载数据失败: ' + error.message, 'error');
+                showMessage('加载作文列表失败: ' + error.message, 'error');
+                essaysData = [];
             }
         }
 
-        // 加载当前作文
+        // 加载指定ID的作文详情
+        async function loadEssayDetail(essayId) {
+            if (!essayId) {
+                showMessage('⚠️ 无效的作文ID', 'error');
+                return;
+            }
+
+            try {
+                // 显示加载状态
+                document.getElementById('essayContent').textContent = '加载中...';
+                document.getElementById('studentName').textContent = '加载中...';
+
+                const response = await fetch(`${API_BASE}/essays/${essayId}`);
+                
+                if (response.status === 404) {
+                    showMessage('❌ 作文不存在', 'error');
+                    document.getElementById('essayContent').textContent = '作文不存在';
+                    return;
+                }
+
+                const essay = await response.json();
+                currentEssay = essay;
+                currentEssayId = essay.id;
+
+                // 查找当前作文在列表中的索引（用于分页）
+                currentIndex = essaysData.findIndex(item => item.id === essay.id);
+
+                // 渲染作文数据
+                renderEssayData(essay);
+                
+                // 更新分页信息
+                updatePagination();
+                
+                // 更新URL
+                updateURL();
+
+                showMessage('✅ 作文详情加载完成', 'success');
+            } catch (error) {
+                showMessage('❌ 加载作文详情失败: ' + error.message, 'error');
+                console.error('加载作文详情失败:', error);
+            }
+        }
+
+        // 渲染作文数据到页面
+        function renderEssayData(essay) {
+            // 显示学生信息
+            document.getElementById('studentName').textContent = `学生: ${essay.student_name || '未知'}`;
+            document.getElementById('directoryName').textContent = essay.batch?.id || '未知批次';
+
+            // 显示作文内容
+            document.getElementById('essayContent').textContent = essay.essay_content || '无作文内容';
+
+            // 统计并显示字数（优先用接口返回的word_count，没有则计算）
+            const wordCount = essay.word_count || essay.essay_content.replace(/\s/g, '').length;
+            document.getElementById('wordCount').textContent = `(共 ${wordCount} 字)`;
+
+            // 自动填充作文题目和要求（从批次信息）
+            document.getElementById('essayTitle').value = essay.batch?.essay_title || '';
+            document.getElementById('essayRequirement').value = essay.batch?.essay_requirement || '';
+
+            // 显示原始评分
+            if (essay.original_score_data) {
+                displayOriginalScores(essay.original_score_data);
+                // 自动检测分制并选择评分提示词
+                const scale = detectScoreScale(essay.original_score_data);
+                autoSelectScorePrompt(scale);
+            } else {
+                document.getElementById('originalScores').innerHTML = `
+                    <div class="empty-result">
+                        <div class="icon">📋</div>
+                        <div>暂无原始评分数据</div>
+                    </div>
+                `;
+            }
+
+            // 重置AI评分和分析结果
+            resetAIScores();
+        }
+
         // 检测评分分制(根据原始评分判断)
         function detectScoreScale(scoreData) {
+            if (!scoreData || !scoreData.dimensions) return '40';
+            
             // 检查所有维度的最大分值
             for (const [dimName, dimData] of Object.entries(scoreData.dimensions)) {
                 if (dimData.max_score < 10) {
@@ -733,9 +804,7 @@
 
         // 自动选择合适的评分提示词
         function autoSelectScorePrompt(scale) {
-            if (!scorePromptsData || scorePromptsData.length === 0) {
-                return;
-            }
+            if (!scorePromptsData || scorePromptsData.length === 0) return;
 
             // 查找包含对应分制的提示词版本
             const appropriatePrompts = scorePromptsData.filter(p =>
@@ -751,64 +820,24 @@
             }
         }
 
-        function loadCurrentEssay() {
-            if (currentIndex < 0 || currentIndex >= essaysData.length) {
-                return;
-            }
-
-            const essay = essaysData[currentIndex];
-
-            // 显示学生信息
-            document.getElementById('studentName').textContent = `学生: ${essay.student_name}`;
-            document.getElementById('directoryName').textContent = essay.directory_name;
-
-            // 显示作文内容
-            document.getElementById('essayContent').textContent = essay.essay_content;
-
-            // 统计并显示字数
-            const wordCount = essay.essay_content.replace(/\s/g, '').length;
-            document.getElementById('wordCount').textContent = `(共 ${wordCount} 字)`;
-
-            // 显示原始评分
-            displayOriginalScores(essay.score_data);
-
-            // 自动检测并选择合适的评分提示词
-            const scale = detectScoreScale(essay.score_data);
-            autoSelectScorePrompt(scale);
-
-            // 根据directory_name自动填充作文题目和要求
-            loadEssayRequire(essay.directory_name);
-
-            // 清空AI评分结果
-            resetAIScores();
-
-            // 更新URL
-            updateURL();
-        }
-
-        // 根据directory_name加载作文题目和要求
-        function loadEssayRequire(directoryName) {
-            // 在essaysRequireData中查找对应的数据
-            const requireData = essaysRequireData.find(item => item.directory_name === directoryName);
-
-            if (requireData) {
-                // 自动填充作文题目和要求
-                document.getElementById('essayTitle').value = requireData.essay_title || '';
-                document.getElementById('essayRequirement').value = requireData.essay_requirement || '';
-            } else {
-                // 如果没有找到,清空输入框
-                document.getElementById('essayTitle').value = '';
-                document.getElementById('essayRequirement').value = '';
-            }
-        }
-
         // 显示原始评分
         function displayOriginalScores(scoreData) {
             const container = document.getElementById('originalScores');
+            
+            if (!scoreData || !scoreData.dimensions) {
+                container.innerHTML = `
+                    <div class="empty-result">
+                        <div class="icon">📋</div>
+                        <div>暂无原始评分数据</div>
+                    </div>
+                `;
+                return;
+            }
+
             let html = `
                 <div class="score-item total">
                     <span class="score-label">总分</span>
-                    <span class="score-value">${scoreData.total_score}</span>
+                    <span class="score-value">${scoreData.total_score || 0}</span>
                 </div>
             `;
 
@@ -816,7 +845,7 @@
                 html += `
                     <div class="score-item">
                         <span class="score-label">${dimName}</span>
-                        <span class="score-value">${dimData.score} / ${dimData.max_score}</span>
+                        <span class="score-value">${dimData.score || 0} / ${dimData.max_score || 0}</span>
                     </div>
                 `;
             }
@@ -841,20 +870,18 @@
 
         // 上一页
         function previousEssay() {
-            if (currentIndex > 0) {
-                currentIndex--;
-                loadCurrentEssay();
-                updatePagination();
-            }
+            if (currentIndex <= 0 || essaysData.length === 0) return;
+            currentIndex--;
+            const prevEssay = essaysData[currentIndex];
+            loadEssayDetail(prevEssay.id);
         }
 
         // 下一页
         function nextEssay() {
-            if (currentIndex < essaysData.length - 1) {
-                currentIndex++;
-                loadCurrentEssay();
-                updatePagination();
-            }
+            if (currentIndex >= essaysData.length - 1 || essaysData.length === 0) return;
+            currentIndex++;
+            const nextEssay = essaysData[currentIndex];
+            loadEssayDetail(nextEssay.id);
         }
 
         // 跳转到指定页
@@ -873,16 +900,22 @@
             }
 
             currentIndex = pageNum - 1;
-            loadCurrentEssay();
-            updatePagination();
+            const targetEssay = essaysData[currentIndex];
+            loadEssayDetail(targetEssay.id);
             input.value = '';
         }
 
         // 更新分页控件
         function updatePagination() {
-            if (essaysData.length === 0) return;
+            if (essaysData.length === 0) {
+                document.getElementById('pageInfo').textContent = `0 / 0`;
+                document.getElementById('prevBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                return;
+            }
 
-            document.getElementById('pageInfo').textContent = `${currentIndex + 1} / ${essaysData.length}`;
+            const currentPage = currentIndex >= 0 ? currentIndex + 1 : 0;
+            document.getElementById('pageInfo').textContent = `${currentPage} / ${essaysData.length}`;
             document.getElementById('prevBtn').disabled = currentIndex <= 0;
             document.getElementById('nextBtn').disabled = currentIndex >= essaysData.length - 1;
         }
@@ -902,12 +935,12 @@
                 // 加载分析提示词
                 const analyzeResponse = await fetch(`${API_BASE}/prompts?type=analyze`);
                 const analyzeData = await analyzeResponse.json();
-                analyzePromptsData = analyzeData.prompts;
+                analyzePromptsData = analyzeData.prompts || [];
 
                 // 加载评分提示词
                 const scoreResponse = await fetch(`${API_BASE}/prompts?type=score`);
                 const scoreData = await scoreResponse.json();
-                scorePromptsData = scoreData.prompts;
+                scorePromptsData = scoreData.prompts || [];
 
                 // 填充分析提示词选择器
                 const analyzeSelect = document.getElementById('analyzePromptSelect');
@@ -947,7 +980,6 @@
             const version = document.getElementById('analyzePromptSelect').value;
             const prompt = analyzePromptsData.find(p => p.version === version);
             if (prompt) {
-                selectedAnalyzeVersion = version;
                 document.getElementById('analyzePromptContent').value = prompt.prompt;
             }
         }
@@ -957,7 +989,6 @@
             const version = document.getElementById('scorePromptSelect').value;
             const prompt = scorePromptsData.find(p => p.version === version);
             if (prompt) {
-                selectedScoreVersion = version;
                 document.getElementById('scorePromptContent').value = prompt.prompt;
             }
         }
@@ -1088,12 +1119,11 @@
 
         // 执行作文分析(第一步)
         async function performAnalysis() {
-            if (currentIndex < 0 || currentIndex >= essaysData.length) {
-                showMessage('⚠️ 数据未加载', 'error');
+            if (!currentEssay) {
+                showMessage('⚠️ 作文数据未加载', 'error');
                 return;
             }
 
-            const essay = essaysData[currentIndex];
             const title = document.getElementById('essayTitle').value.trim();
             const requirement = document.getElementById('essayRequirement').value.trim();
 
@@ -1114,7 +1144,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        essay_content: essay.essay_content,
+                        essay_content: currentEssay.essay_content,
                         essay_title: title,
                         essay_requirement: requirement,
                         prompt: promptContent
@@ -1344,12 +1374,11 @@
 
         // 执行AI评分(第二步)
         async function performScoring() {
-            if (currentIndex < 0 || currentIndex >= essaysData.length) {
-                showMessage('⚠️ 数据未加载', 'error');
+            if (!currentEssay) {
+                showMessage('⚠️ 作文数据未加载', 'error');
                 return;
             }
 
-            const essay = essaysData[currentIndex];
             const title = document.getElementById('essayTitle').value.trim();
             const requirement = document.getElementById('essayRequirement').value.trim();
 
@@ -1371,12 +1400,12 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        essay_content: essay.essay_content,
+                        essay_content: currentEssay.essay_content,
                         essay_title: title,
                         essay_requirement: requirement,
                         prompt: promptContent,
                         analysis: currentAnalysis,  // 传递分析结果
-                        original_score_data: essay.score_data  // 传递原始评分数据,用于判断分制
+                        original_score_data: currentEssay.original_score_data  // 传递原始评分数据,用于判断分制
                     })
                 });
 
@@ -1400,10 +1429,21 @@
         // 显示AI评分结果
         function displayAIScores(scoreData) {
             const container = document.getElementById('aiScores');
+            
+            if (!scoreData || !scoreData.dimensions) {
+                container.innerHTML = `
+                    <div class="empty-result">
+                        <div class="icon">🎯</div>
+                        <div>暂无AI评分数据</div>
+                    </div>
+                `;
+                return;
+            }
+
             let html = `
                 <div class="score-item ai-total">
                     <span class="score-label">总分</span>
-                    <span class="score-value">${scoreData.total_score}</span>
+                    <span class="score-value">${scoreData.total_score || 0}</span>
                 </div>
             `;
 
@@ -1411,7 +1451,7 @@
                 html += `
                     <div class="score-item">
                         <span class="score-label">${dimName}</span>
-                        <span class="score-value">${dimData.score} / ${dimData.max_score}</span>
+                        <span class="score-value">${dimData.score || 0} / ${dimData.max_score || 0}</span>
                     </div>
                 `;
             }
@@ -1421,7 +1461,7 @@
 
         // 返回主页
         function goBack() {
-            window.location.href = `index.html?index=${currentIndex}`;
+            window.location.href = `index.html?essay_id=${currentEssayId || ''}`;
         }
 
         // 显示消息
@@ -1436,24 +1476,21 @@
             }, 3000);
         }
 
-        // 加载作文题目和要求数据
-        async function loadEssaysRequire() {
-            try {
-                const response = await fetch(`${API_BASE}/essays-require`);
-                const result = await response.json();
-                essaysRequireData = result.data || [];
-                console.log('作文要求数据加载成功:', essaysRequireData.length, '条');
-            } catch (error) {
-                console.error('加载作文要求数据失败:', error);
-                essaysRequireData = [];
-            }
-        }
-
         // 页面加载完成后初始化
-        window.addEventListener('DOMContentLoaded', function() {
-            loadEssaysRequire();  // 先加载作文要求数据
-            loadAllEssays();
-            loadPrompts();
+        window.addEventListener('DOMContentLoaded', async function() {
+            // 1. 加载提示词
+            await loadPrompts();
+            
+            // 2. 加载所有作文列表（用于分页）
+            await loadAllEssays();
+            
+            // 3. 获取URL中的作文ID并加载详情
+            const essayId = getEssayIdFromURL();
+            if (essayId) {
+                await loadEssayDetail(essayId);
+            } else {
+                showMessage('⚠️ 未指定作文ID', 'error');
+            }
         });
     </script>
 </body>

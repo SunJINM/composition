@@ -716,6 +716,25 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- 新增：评分对比反馈模块 -->
+                        <div class="feedback-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+                            <h4 style="color: #667eea; margin-bottom: 15px;">📝 评分对比反馈</h4>
+                            <div style="margin-bottom: 10px;">
+                                <label style="margin-right: 15px;">
+                                    <input type="radio" name="whichAccurate" value="original" checked> 原始评分更准确
+                                </label>
+                                <label>
+                                    <input type="radio" name="whichAccurate" value="ai"> AI评分更准确
+                                </label>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 15px;">
+                                <label>反馈理由（可选）</label>
+                                <textarea id="feedbackReason" placeholder="请输入反馈理由（例如：原始评分更贴合题目要求）..." style="min-height: 100px;"></textarea>
+                            </div>
+                            <button id="submitFeedbackBtn" onclick="submitComparisonFeedback()" style="padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer; transition: all 0.3s;">
+                                提交反馈
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1803,6 +1822,69 @@
             }
 
             container.innerHTML = html;
+        }
+
+        // 提交评分对比反馈
+        async function submitComparisonFeedback() {
+            // 1. 获取参数
+            const evaluationId = currentEvaluationId;
+            const scoreId = document.getElementById('scoreRecordSelect').value;
+            const userPhone = getCurrentUserPhone();
+            const whichAccurate = document.querySelector('input[name="whichAccurate"]:checked').value;
+            const reason = document.getElementById('feedbackReason').value.trim();
+        
+            // 2. 前置校验
+            if (!evaluationId) {
+                showMessage('⚠️ 请先选择评价记录', 'error');
+                return;
+            }
+            if (!scoreId) {
+                showMessage('⚠️ 请先选择评分记录', 'error');
+                return;
+            }
+            if (!userPhone) {
+                showMessage('⚠️ 请先登录', 'error');
+                return;
+            }
+        
+            // 3. 按钮加载状态
+            const btn = document.getElementById('submitFeedbackBtn');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> 提交中...';
+        
+            try {
+                // 4. 调用接口
+                const response = await fetch(`${API_BASE}/feedbacks/comparison`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        evaluation_id: evaluationId,
+                        score_id: scoreId,
+                        user_phone: userPhone,
+                        which_accurate: whichAccurate,
+                        reason: reason
+                    })
+                });
+            
+                // 5. 处理响应
+                if (response.ok) {
+                    const result = await response.json();
+                    showMessage('✅ 反馈提交成功', 'success');
+                    document.getElementById('feedbackReason').value = ''; // 清空输入框
+                } else {
+                    const error = await response.json().catch(() => ({ detail: '提交失败，请重试' }));
+                    showMessage(`❌ 反馈提交失败: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showMessage(`❌ 反馈提交失败: ${error.message}`, 'error');
+            } finally {
+                // 6. 恢复按钮状态
+                btn.disabled = false;
+                btn.textContent = originalText;
+            }
         }
 
         // 返回主页

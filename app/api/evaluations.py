@@ -405,6 +405,7 @@ async def ai_score_essay(
     db: Session = Depends(get_db)
 ):
     """使用AI对作文进行评分(第二步,可选地基于分析结果)"""
+    print(request)
     try:
         # 统计作文字数（去除空白字符）
         word_count = len(request.essay_content.replace(' ', '').replace('\n', '').replace('\r', '').replace('\t', ''))

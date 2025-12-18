@@ -683,6 +683,7 @@
         let analyzePromptsData = [];  // 作文评价提示词列表
         let scorePromptsData = [];    // 作文评分提示词列表
         let currentAnalysis = null;   // 存储当前作文的分析结果
+        let currentEvaluationId = null; // 存储分析接口返回的评价ID
 
         // 从URL获取作文ID
         function getEssayIdFromURL() {
@@ -877,6 +878,7 @@
             // 隐藏分析结果
             document.getElementById('analysisSection').style.display = 'none';
             currentAnalysis = null;
+            currentEvaluationId = null; // 新增：清空评价ID
             // 禁用评分按钮
             document.getElementById('scoreBtn').disabled = true;
         }
@@ -1167,21 +1169,35 @@
                 return;
             }
 
+            // 新增：检查用户手机号
+            const userPhone = getCurrentUserPhone();
+            if (!userPhone) {
+                showMessage('⚠️ 请先登录', 'error');
+                return;
+            }
+
+            // 新增：获取分析提示词ID
+            const analyzePromptId = parseInt(document.getElementById('analyzePromptSelect').value);
+            if (isNaN(analyzePromptId)) {
+                showMessage('⚠️ 请选择有效的评价提示词版本', 'error');
+                return;
+            }
+        
             const title = document.getElementById('essayTitle').value.trim();
             const requirement = document.getElementById('essayRequirement').value.trim();
-
+        
             // 使用分析提示词输入框的内容
             const promptContent = document.getElementById('analyzePromptContent').value.trim();
             if (!promptContent) {
                 showMessage('⚠️ 请输入作文评价提示词', 'error');
                 return;
             }
-
+        
             const btn = document.getElementById('analyzeBtn');
             const originalHTML = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '<span class="loading-spinner"></span> AI分析中...';
-
+        
             try {
                 const response = await fetch(`${API_BASE}/evaluations/ai-analyze`, {
                     method: 'POST',
@@ -1190,14 +1206,19 @@
                         essay_content: currentEssay.essay_content,
                         essay_title: title,
                         essay_requirement: requirement,
-                        prompt: promptContent
+                        prompt: promptContent,
+                        // 新增：添加三个必填参数
+                        essay_id: currentEssayId,
+                        analyze_prompt_id: analyzePromptId,
+                        user_phone: userPhone
                     })
                 });
-
+            
                 const result = await response.json();
-
+            
                 if (result.success) {
                     currentAnalysis = result.analysis;
+                    currentEvaluationId = result.evaluation_id; // 新增：保存评价ID
                     displayAnalysis(result.analysis);
                     // 启用评分按钮
                     document.getElementById('scoreBtn').disabled = false;
@@ -1422,22 +1443,41 @@
                 return;
             }
 
+            // 新增：校验前置条件
+            if (!currentEvaluationId) {
+                showMessage('⚠️ 请先完成作文分析获取评价ID', 'error');
+                return;
+            }
+
+            // 新增：检查用户手机号
+            const userPhone = getCurrentUserPhone();
+            if (!userPhone) {
+                showMessage('⚠️ 请先登录', 'error');
+                return;
+            }
+
+            // 新增：获取评分提示词ID并校验
+            const scorePromptId = parseInt(document.getElementById('scorePromptSelect').value);
+            if (isNaN(scorePromptId)) {
+                showMessage('⚠️ 请选择有效的评分提示词版本', 'error');
+                return;
+            }
+        
             const title = document.getElementById('essayTitle').value.trim();
             const requirement = document.getElementById('essayRequirement').value.trim();
-
+        
             // 使用评分提示词输入框的内容
             const promptContent = document.getElementById('scorePromptContent').value.trim();
-
             if (!promptContent) {
                 showMessage('⚠️ 请输入作文评分提示词', 'error');
                 return;
             }
-
+        
             const btn = document.getElementById('scoreBtn');
             const originalHTML = btn.innerHTML;
             btn.disabled = true;
             btn.innerHTML = '<span class="loading-spinner"></span> AI评分中...';
-
+        
             try {
                 const response = await fetch(`${API_BASE}/evaluations/ai-score`, {
                     method: 'POST',
@@ -1447,13 +1487,17 @@
                         essay_title: title,
                         essay_requirement: requirement,
                         prompt: promptContent,
-                        analysis: currentAnalysis,  // 传递分析结果
-                        original_score_data: currentEssay.original_score_data  // 传递原始评分数据,用于判断分制
+                        analysis: currentAnalysis,  // 分析结果(可选)
+                        original_score_data: currentEssay.original_score_data,  // 原始评分数据(用于判断分制)
+                        // 新增/替换：三个必填参数
+                        evaluation_id: currentEvaluationId, // 分析接口返回的评价ID
+                        score_prompt_id: scorePromptId,     // 评分提示词ID
+                        user_phone: userPhone               // 用户手机号
                     })
                 });
-
+            
                 const result = await response.json();
-
+            
                 if (result.success) {
                     displayAIScores(result.score_data);
                     showMessage('✅ AI评分完成!', 'success');

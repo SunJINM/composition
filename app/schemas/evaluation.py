@@ -63,9 +63,9 @@ class AIScoreWithAnalysisRequest(BaseModel):
     prompt: str
     analysis: Optional[Dict] = None  # 分析结果(可选)
     original_score_data: Optional[Dict] = None  # 原始评分数据(用于判断分制)
-    evaluation_id: int = Field(..., description="评价ID")
-    score_prompt_id: int = Field(..., description="评分提示词ID")
-    user_phone: str = Field(..., description="用户手机号")
+    evaluation_id: int = Field(default=None, description="评价ID")
+    score_prompt_id: int = Field(default=None, description="评分提示词ID")
+    user_phone: str = Field(default=None, description="用户手机号")
 
 
 class EvaluationListResponse(BaseModel):

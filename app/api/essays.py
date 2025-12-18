@@ -8,7 +8,7 @@ from typing import Optional
 import json
 import math
 from app.database import get_db
-from app.models import Essay, Batch, Evaluation
+from app.models import Essay, Batch, Evaluation, Prompt, Score, Genre, Grade
 from app.schemas import EssayListResponse, EssayListItem, EssayDetailResponse
 from app.utils import logger
 from app.config import settings
@@ -145,13 +145,16 @@ async def get_essay_detail(
 
     return EssayDetailResponse(**essay_data)
 
-
-@router.get("/{essay_id}/evaluations", summary="获取作文的所有评价记录")
+@router.get("/{essay_id}/evaluations", summary="获取作文的所有评价记录（含评分数据）")
 async def get_essay_evaluations(
     essay_id: int,
     db: Session = Depends(get_db)
 ):
-    """获取指定作文的所有评价记录"""
+    """
+    获取指定作文的所有评价记录（附带评分数据）
+    - 返回解析后的评价结果（JSON对象，前端可直接渲染）
+    - 附带每个评价对应的所有评分数据（AI/用户评分，含维度分数）
+    """
     # 检查作文是否存在
     essay = db.query(Essay).filter_by(id=essay_id, status=1).first()
     if not essay:
@@ -160,7 +163,7 @@ async def get_essay_evaluations(
             detail="作文不存在"
         )
 
-    # 获取评价记录
+    # 获取评价记录（按创建时间倒序）
     evaluations = db.query(Evaluation).filter_by(
         essay_id=essay_id,
         status=1
@@ -169,17 +172,89 @@ async def get_essay_evaluations(
     # 组装响应数据
     evaluation_items = []
     for evaluation in evaluations:
-        eval_data = {
+        # 1. 解析评价结果（JSON字符串转对象）
+        try:
+            evaluation_result = json.loads(evaluation.evaluation_result)
+        except (json.JSONDecodeError, TypeError):
+            # 解析失败时返回原始字符串+提示
+            evaluation_result = {
+                "error": "评价结果解析失败",
+                "raw_data": evaluation.evaluation_result
+            }
+
+        # 2. 查询该评价对应的所有评分记录
+        scores = db.query(Score).filter_by(
+            evaluation_id=evaluation.id,
+            status=1
+        ).all()
+
+        # 3. 组装评分数据
+        score_items = []
+        for score in scores:
+            # 解析维度分数（JSON字符串转对象）
+            try:
+                dimension_scores = json.loads(score.dimension_scores)
+            except (json.JSONDecodeError, TypeError):
+                dimension_scores = {
+                    "error": "维度分数解析失败",
+                    "raw_data": score.dimension_scores
+                }
+            
+            # 获取评分提示词版本名称
+            score_prompt = db.query(Prompt).filter_by(id=score.score_prompt_id, status=1).first()
+            
+            score_items.append({
+                "score_id": score.id,
+                "user_phone": score.user_phone,
+                "score_type": score.score_type,  # ai/user
+                "score_prompt_id": score.score_prompt_id,
+                "score_prompt_version": score_prompt.version_name if score_prompt else "",
+                "total_score": float(score.total_score),  # 确保浮点型
+                "dimension_scores": dimension_scores,  # 解析后的维度分数
+                "is_default": bool(score.is_default),
+                "create_date": score.create_date,
+                "update_date": score.update_date
+            })
+
+        # 4. 获取关联的名称信息
+        confirmed_genre = db.query(Genre).filter_by(id=evaluation.confirmed_genre_id, status=1).first()
+        confirmed_grade = db.query(Grade).filter_by(id=evaluation.confirmed_grade_id, status=1).first()
+        detected_genre = db.query(Genre).filter_by(id=evaluation.detected_genre_id, status=1).first() if evaluation.detected_genre_id else None
+        detected_grade = db.query(Grade).filter_by(id=evaluation.detected_grade_id, status=1).first() if evaluation.detected_grade_id else None
+        analyze_prompt = db.query(Prompt).filter_by(id=evaluation.analyze_prompt_id, status=1).first()
+
+        # 5. 组装单条评价记录
+        evaluation_items.append({
             "evaluation_id": evaluation.id,
+            "essay_id": evaluation.essay_id,
             "user_phone": evaluation.user_phone,
-            "genre_name": evaluation.confirmed_genre.genre_name if evaluation.confirmed_genre else "",
-            "grade_name": evaluation.confirmed_grade.grade_name if evaluation.confirmed_grade else "",
-            "analyze_prompt_version": evaluation.analyze_prompt.version_name if evaluation.analyze_prompt else "",
+            # 文体信息
+            "detected_genre_id": evaluation.detected_genre_id,
+            "detected_genre_name": detected_genre.genre_name if detected_genre else "",
+            "confirmed_genre_id": evaluation.confirmed_genre_id,
+            "confirmed_genre_name": confirmed_genre.genre_name if confirmed_genre else "",
+            "genre_confidence": float(evaluation.genre_confidence) if evaluation.genre_confidence else 0.0,
+            # 年级信息
+            "detected_grade_id": evaluation.detected_grade_id,
+            "detected_grade_name": detected_grade.grade_name if detected_grade else "",
+            "confirmed_grade_id": evaluation.confirmed_grade_id,
+            "confirmed_grade_name": confirmed_grade.grade_name if confirmed_grade else "",
+            # 评价提示词信息
+            "analyze_prompt_id": evaluation.analyze_prompt_id,
+            "analyze_prompt_version": analyze_prompt.version_name if analyze_prompt else "",
+            # 评价结果（解析后）
+            "evaluation_result": evaluation_result,  # 前端可直接渲染的JSON
+            # 评分数据
+            "scores": score_items,  # 该评价下的所有评分
+            # 基础状态
             "is_latest": bool(evaluation.is_latest),
-            "create_date": evaluation.create_date
-        }
-        evaluation_items.append(eval_data)
+            "create_date": evaluation.create_date,
+            "update_date": evaluation.update_date
+        })
 
     return {
+        "essay_id": essay_id,
+        "essay_title": essay.essay_title if hasattr(essay, 'essay_title') else "",  # 补充作文标题
+        "total_evaluations": len(evaluation_items),
         "evaluations": evaluation_items
     }

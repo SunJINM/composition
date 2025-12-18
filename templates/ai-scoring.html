@@ -191,6 +191,7 @@
             align-items: center;
             gap: 10px;
             margin-bottom: 15px;
+            flex-wrap: wrap;
         }
 
         .version-control label {
@@ -225,6 +226,43 @@
         .version-control button:hover {
             background: #45a049;
             transform: translateY(-2px);
+        }
+
+        /* 新增：评价/评分记录选择器样式 */
+        .record-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+            padding: 10px;
+            background: #f0f8ff;
+            border-radius: 8px;
+        }
+
+        .record-selector label {
+            font-weight: bold;
+            color: #333;
+            min-width: 80px;
+        }
+
+        .record-selector select {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 14px;
+            min-width: 200px;
+        }
+
+        .record-info {
+            font-size: 13px;
+            color: #666;
+            margin: 5px 0 10px 0;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
         }
 
         .score-btn {
@@ -537,6 +575,11 @@
             .score-comparison {
                 grid-template-columns: 1fr;
             }
+
+            .record-selector {
+                flex-direction: column;
+                align-items: stretch;
+            }
         }
     </style>
 </head>
@@ -592,6 +635,18 @@
                     <div class="form-group">
                         <textarea id="analyzePromptContent" placeholder="作文评价提示词内容"></textarea>
                     </div>
+                    
+                    <!-- 新增：评价记录选择器 -->
+                    <div class="record-selector">
+                        <label>评价记录:</label>
+                        <select id="evaluationRecordSelect" onchange="onEvaluationRecordChange()">
+                            <option value="">加载中...</option>
+                        </select>
+                    </div>
+                    <div class="record-info" id="evaluationRecordInfo">
+                        暂无评价记录 | 点击"第一步:分析作文"创建新评价
+                    </div>
+                    
                     <button class="score-btn" id="analyzeBtn" onclick="performAnalysis()">
                         🔍 第一步:分析作文
                     </button>
@@ -622,6 +677,18 @@
                     <div class="form-group">
                         <textarea id="scorePromptContent" placeholder="作文评分提示词内容"></textarea>
                     </div>
+                    
+                    <!-- 新增：评分记录选择器 -->
+                    <div class="record-selector">
+                        <label>评分记录:</label>
+                        <select id="scoreRecordSelect" onchange="onScoreRecordChange()">
+                            <option value="">请先选择评价记录</option>
+                        </select>
+                    </div>
+                    <div class="record-info" id="scoreRecordInfo">
+                        暂无评分记录 | 完成分析后可进行评分
+                    </div>
+                    
                     <button class="score-btn" id="scoreBtn" onclick="performScoring()" disabled>
                         🎯 第二步:AI评分
                     </button>
@@ -684,6 +751,8 @@
         let scorePromptsData = [];    // 作文评分提示词列表
         let currentAnalysis = null;   // 存储当前作文的分析结果
         let currentEvaluationId = null; // 存储分析接口返回的评价ID
+        let evaluationRecords = [];   // 作文评价记录列表
+        let scoreRecords = [];        // 当前评价对应的评分记录列表
 
         // 从URL获取作文ID
         function getEssayIdFromURL() {
@@ -697,7 +766,6 @@
             const newURL = `${window.location.pathname}?essay_id=${currentEssayId}`;
             window.history.pushState({}, '', newURL);
         }
-
 
         // 读取当前登录用户的手机号
         function getCurrentUserPhone() {
@@ -760,11 +828,172 @@
                 // 更新URL
                 updateURL();
 
+                // 加载评价记录
+                await loadEvaluationRecords();
+
                 showMessage('✅ 作文详情加载完成', 'success');
             } catch (error) {
                 showMessage('❌ 加载作文详情失败: ' + error.message, 'error');
                 console.error('加载作文详情失败:', error);
             }
+        }
+
+        // 新增：加载作文评价记录
+        async function loadEvaluationRecords() {
+            if (!currentEssayId) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/essays/${currentEssayId}/evaluations`);
+                const data = await response.json();
+                evaluationRecords = data.evaluations || [];
+                
+                // 渲染评价记录下拉框
+                renderEvaluationRecords();
+                
+                // 如果有评价记录，默认选中最新的
+                if (evaluationRecords.length > 0) {
+                    const latestEval = evaluationRecords.find(item => item.is_latest) || evaluationRecords[0];
+                    currentEvaluationId = latestEval.evaluation_id;
+                    document.getElementById('evaluationRecordSelect').value = currentEvaluationId;
+                    
+                    // 加载该评价的分析结果
+                    onEvaluationRecordChange();
+                }
+            } catch (error) {
+                console.error('加载评价记录失败:', error);
+                showMessage('❌ 加载评价记录失败: ' + error.message, 'error');
+                evaluationRecords = [];
+                renderEvaluationRecords();
+            }
+        }
+
+        // 新增：渲染评价记录下拉框
+        function renderEvaluationRecords() {
+            const evalSelect = document.getElementById('evaluationRecordSelect');
+            const evalInfo = document.getElementById('evaluationRecordInfo');
+
+            if (evaluationRecords.length === 0) {
+                evalSelect.innerHTML = '<option value="">暂无评价记录</option>';
+                evalInfo.textContent = '暂无评价记录 | 点击"第一步:分析作文"创建新评价';
+                return;
+            }
+
+            // 构建下拉框选项
+            evalSelect.innerHTML = evaluationRecords.map((evalItem, index) => {
+                const createTime = new Date(evalItem.create_date).toLocaleString();
+                const isLatest = evalItem.is_latest ? ' [最新]' : '';
+                const label = `评价${index + 1} (${createTime}) ${isLatest}`;
+                return `<option value="${evalItem.evaluation_id}">${label}</option>`;
+            }).join('');
+
+            // 更新信息提示
+            const latestEval = evaluationRecords.find(item => item.is_latest) || evaluationRecords[0];
+            const latestTime = new Date(latestEval.create_date).toLocaleString();
+            evalInfo.innerHTML = `
+                共 ${evaluationRecords.length} 条评价记录 | 
+                最新评价: ${latestTime} | 
+                评价人: ${latestEval.user_phone} | 
+                文体: ${latestEval.confirmed_genre_name} | 
+                年级: ${latestEval.confirmed_grade_name}
+            `;
+        }
+
+        // 新增：评价记录切换事件
+        function onEvaluationRecordChange() {
+            const evalId = document.getElementById('evaluationRecordSelect').value;
+            if (!evalId) {
+                // 隐藏分析结果
+                document.getElementById('analysisSection').style.display = 'none';
+                currentAnalysis = null;
+                currentEvaluationId = null;
+                // 清空评分记录
+                scoreRecords = [];
+                renderScoreRecords();
+                document.getElementById('scoreBtn').disabled = true;
+                return;
+            }
+
+            // 查找选中的评价记录
+            const selectedEval = evaluationRecords.find(item => item.evaluation_id == evalId);
+            if (!selectedEval) return;
+
+            currentEvaluationId = evalId;
+            
+            // 显示分析结果
+            if (selectedEval.evaluation_result) {
+                currentAnalysis = selectedEval.evaluation_result;
+                displayAnalysis(currentAnalysis);
+                document.getElementById('analysisSection').style.display = 'block';
+                document.getElementById('scoreBtn').disabled = false;
+            }
+
+            // 加载该评价的评分记录
+            scoreRecords = selectedEval.scores || [];
+            renderScoreRecords();
+            
+            // 如果有评分记录，默认选中第一个
+            if (scoreRecords.length > 0) {
+                currentScoreId = scoreRecords[0].score_id;
+                document.getElementById('scoreRecordSelect').value = currentScoreId;
+                onScoreRecordChange();
+            }
+        }
+
+        // 新增：渲染评分记录下拉框
+        function renderScoreRecords() {
+            const scoreSelect = document.getElementById('scoreRecordSelect');
+            const scoreInfo = document.getElementById('scoreRecordInfo');
+
+            if (scoreRecords.length === 0) {
+                scoreSelect.innerHTML = '<option value="">暂无评分记录</option>';
+                scoreInfo.textContent = '暂无评分记录 | 点击"第二步:AI评分"创建新评分';
+                return;
+            }
+
+            // 构建下拉框选项
+            scoreSelect.innerHTML = scoreRecords.map((scoreItem, index) => {
+                const createTime = new Date(scoreItem.create_date).toLocaleString();
+                const scoreType = scoreItem.score_type === 'ai' ? 'AI评分' : '人工评分';
+                const isDefault = scoreItem.is_default ? ' [默认]' : '';
+                const label = `${scoreType}${index + 1} (${createTime}) 总分: ${scoreItem.total_score}${isDefault}`;
+                return `<option value="${scoreItem.score_id}">${label}</option>`;
+            }).join('');
+
+            // 更新信息提示
+            const defaultScore = scoreRecords.find(item => item.is_default) || scoreRecords[0];
+            const defaultTime = new Date(defaultScore.create_date).toLocaleString();
+            scoreInfo.innerHTML = `
+                共 ${scoreRecords.length} 条评分记录 | 
+                默认评分: ${defaultScore.total_score}分 | 
+                评分类型: ${defaultScore.score_type === 'ai' ? 'AI评分' : '人工评分'} | 
+                创建时间: ${defaultTime} | 
+                评分模板: ${defaultScore.score_prompt_version}
+            `;
+        }
+
+        // 新增：评分记录切换事件
+        function onScoreRecordChange() {
+            const scoreId = document.getElementById('scoreRecordSelect').value;
+            if (!scoreId) {
+                // 重置AI评分区域
+                document.getElementById('aiScores').innerHTML = `
+                    <div class="empty-result">
+                        <div class="icon">🎯</div>
+                        <div>暂无评分数据<br>点击"第二步:AI评分"按钮获取</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // 查找选中的评分记录
+            const selectedScore = scoreRecords.find(item => item.score_id == scoreId);
+            if (!selectedScore) return;
+
+            // 显示评分结果
+            displayAIScores({
+                total_score: selectedScore.total_score,
+                dimensions: selectedScore.dimension_scores
+            });
         }
 
         // 渲染作文数据到页面
@@ -799,8 +1028,8 @@
                 `;
             }
 
-            // 重置AI评分和分析结果
-            resetAIScores();
+            // 重置AI评分和分析结果（但保留评价记录）
+            resetAIScores(false);
         }
 
         // 检测评分分制(根据原始评分判断)
@@ -868,17 +1097,24 @@
         }
 
         // 重置AI评分区域
-        function resetAIScores() {
+        function resetAIScores(clearEval = true) {
             document.getElementById('aiScores').innerHTML = `
                 <div class="empty-result">
                     <div class="icon">🎯</div>
                     <div>点击"第二步:AI评分"按钮<br>获取AI评分结果</div>
                 </div>
             `;
-            // 隐藏分析结果
-            document.getElementById('analysisSection').style.display = 'none';
-            currentAnalysis = null;
-            currentEvaluationId = null; // 新增：清空评价ID
+            
+            if (clearEval) {
+                // 隐藏分析结果
+                document.getElementById('analysisSection').style.display = 'none';
+                currentAnalysis = null;
+                currentEvaluationId = null;
+                // 清空评分记录
+                scoreRecords = [];
+                renderScoreRecords();
+            }
+            
             // 禁用评分按钮
             document.getElementById('scoreBtn').disabled = true;
         }
@@ -1038,7 +1274,7 @@
                         version_name: versionName,
                         prompt_content: content,
                         is_default: false,     // 默认不设为默认
-                        created_by: 'admin'    // 默认创建者
+                        created_by: getCurrentUserPhone() || 'admin'    // 使用当前用户手机号
                     })
                 });
 
@@ -1111,7 +1347,7 @@
                         version_name: versionName,
                         prompt_content: content,
                         is_default: false,    // 默认不设为默认
-                        created_by: 'admin'   // 默认创建者
+                        created_by: getCurrentUserPhone() || 'admin'   // 使用当前用户手机号
                     })
                 });
 
@@ -1222,6 +1458,10 @@
                     displayAnalysis(result.analysis);
                     // 启用评分按钮
                     document.getElementById('scoreBtn').disabled = false;
+                    
+                    // 重新加载评价记录
+                    await loadEvaluationRecords();
+                    
                     showMessage('✅ 作文分析完成! 现在可以进行评分了', 'success');
                 } else {
                     showMessage('❌ AI分析失败: ' + result.error, 'error');
@@ -1436,6 +1676,34 @@
             section.style.display = 'block';
         }
 
+        // 新增：评分记录切换事件
+        function onScoreRecordChange() {
+            const scoreId = document.getElementById('scoreRecordSelect').value;
+            if (!scoreId) return;
+
+            // 查找选中的评分记录
+            const selectedScore = scoreRecords.find(item => item.score_id == scoreId);
+            if (!selectedScore) return;
+
+            // 显示该评分的结果
+            displayAIScores({
+                total_score: selectedScore.total_score,
+                dimensions: selectedScore.dimension_scores
+            });
+
+            // 更新评分信息提示
+            const scoreInfo = document.getElementById('scoreRecordInfo');
+            const scoreType = selectedScore.score_type === 'ai' ? 'AI评分' : '人工评分';
+            const createTime = new Date(selectedScore.create_date).toLocaleString();
+            scoreInfo.innerHTML = `
+                选中: ${scoreType} | 
+                创建时间: ${createTime} | 
+                评分人: ${selectedScore.user_phone} | 
+                评分模板: ${selectedScore.score_prompt_version} | 
+                ${selectedScore.is_default ? '默认评分' : '非默认评分'}
+            `;
+        }
+
         // 执行AI评分(第二步)
         async function performScoring() {
             if (!currentEssay) {
@@ -1500,6 +1768,10 @@
             
                 if (result.success) {
                     displayAIScores(result.score_data);
+                    
+                    // 重新加载评价记录（包含新评分）
+                    await loadEvaluationRecords();
+                    
                     showMessage('✅ AI评分完成!', 'success');
                 } else {
                     showMessage('❌ AI评分失败: ' + result.error, 'error');
@@ -1568,6 +1840,7 @@
             // 验证登录状态
             const userPhone = getCurrentUserPhone();
             if (!userPhone) return;
+            
             // 1. 加载提示词（优先加载）
             await loadPrompts();
             

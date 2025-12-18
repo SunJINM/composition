@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI自动评分</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+        }
+
+        .back-btn {
+            padding: 12px 24px;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .back-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .student-info {
+            padding: 20px 30px;
+            background: #fff9e6;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .student-info h2 {
+            color: #764ba2;
+            font-size: 1.5em;
+        }
+
+        /* 作文展示区域 - 横向布局 */
+        .essay-display {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 20px 20px 0;
+            align-items: stretch;
+        }
+
+        .essay-content-section,
+        .essay-requirement-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .essay-content-section h3,
+        .essay-requirement-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .essay-requirement-section {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .essay-requirement-section .form-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .essay-requirement-section .form-group textarea {
+            flex: 1;
+            min-height: 0;
+            resize: none;
+        }
+
+        /* 分析和评分区域 - 竖向左右分栏 */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .left-column, .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .text-content {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 2px solid #ddd;
+            font-size: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 300px;
+        }
+
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #764ba2;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .version-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .version-control label {
+            font-weight: bold;
+            color: #333;
+            min-width: 100px;
+        }
+
+        .version-control select {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            background: white;
+        }
+
+        .version-control button {
+            padding: 10px 20px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .version-control button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        .score-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .score-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .score-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .scores-section {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+        }
+
+        .score-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .score-column {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .score-column h4 {
+            color: #333;
+            margin-bottom: 12px;
+            font-size: 1.1em;
+            text-align: center;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .score-column.original h4 {
+            color: #ff9800;
+        }
+
+        .score-column.ai h4 {
+            color: #4caf50;
+        }
+
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            background: white;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+
+        .score-item.total {
+            background: #fff9e6;
+            border-left-color: #ff9800;
+            font-weight: bold;
+            font-size: 1.05em;
+        }
+
+        .score-item.ai-total {
+            background: #e8f5e9;
+            border-left-color: #4caf50;
+            font-weight: bold;
+            font-size: 1.05em;
+        }
+
+        .score-label {
+            color: #333;
+            font-size: 14px;
+        }
+
+        .score-value {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .score-item.total .score-value {
+            color: #ff9800;
+        }
+
+        .score-item.ai-total .score-value {
+            color: #4caf50;
+        }
+
+        .empty-result {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+            font-size: 15px;
+        }
+
+        .empty-result .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+
+        .pagination {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-top: 2px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            min-width: 100px;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .pagination button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .pagination .page-info {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #667eea;
+            min-width: 150px;
+            text-align: center;
+        }
+
+        .pagination .jump-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pagination .jump-input {
+            width: 80px;
+            padding: 10px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .pagination .jump-btn {
+            min-width: 80px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: #4caf50;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            display: none;
+            animation: slideIn 0.3s ease-out;
+            z-index: 1000;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .analysis-content {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #ddd;
+        }
+
+        .analysis-item {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .analysis-item:last-child {
+            border-bottom: none;
+        }
+
+        .analysis-title {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 16px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .analysis-badge {
+            background: #ff9800;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .analysis-list {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .analysis-list li {
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+            font-size: 14px;
+        }
+
+        .error-item {
+            border-left-color: #f44336;
+        }
+
+        .highlight-item {
+            border-left-color: #4caf50;
+        }
+
+        .suggestion-item {
+            border-left-color: #ff9800;
+        }
+
+        .overall-quality {
+            display: inline-block;
+            padding: 6px 16px;
+            background: #667eea;
+            color: white;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        @media (max-width: 1400px) {
+            .essay-display {
+                grid-template-columns: 1fr;
+            }
+
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .score-comparison {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI自动评分</h1>
+            <button class="back-btn" onclick="goBack()">← 返回主页</button>
+        </div>
+
+        <div class="student-info" id="studentInfo">
+            <h2 id="studentName">学生姓名</h2>
+            <span id="directoryName" style="color: #666;"></span>
+        </div>
+
+        <!-- 作文展示区域(横向布局) -->
+        <div class="essay-display">
+            <!-- 作文内容 (2/3宽度) -->
+            <div class="section essay-content-section">
+                <h3>📖 作文内容 <span id="wordCount" style="color: #ff9800; font-size: 0.9em; font-weight: normal;"></span></h3>
+                <div class="text-content" id="essayContent"></div>
+            </div>
+
+            <!-- 作文题目和要求 (1/3宽度) -->
+            <div class="section essay-requirement-section">
+                <h3>📝 作文题目与要求</h3>
+                <div class="form-group">
+                    <label>作文题目（可选）</label>
+                    <textarea id="essayTitle" placeholder="输入作文题目（可选）&#10;例如：秋天的故事"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>作文要求（可选）</label>
+                    <textarea id="essayRequirement" placeholder="输入作文要求（可选）&#10;例如：&#10;1. 文体自选（诗歌除外），不少于500字&#10;2. 文中不得出现真实的人名、校名、地名&#10;3. 卷面清楚，字迹清晰"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分析和评分区域(竖向左右分栏) -->
+        <div class="main-content">
+            <!-- 左侧：分析区域 -->
+            <div class="left-column">
+                <!-- 分析提示词管理 -->
+                <div class="section">
+                    <h3>🔍 分析提示词</h3>
+                    <div class="version-control">
+                        <label>版本选择:</label>
+                        <select id="analyzePromptSelect" onchange="onAnalyzeVersionChange()">
+                            <!-- 动态生成 -->
+                        </select>
+                        <button onclick="saveAnalyzeVersion()">💾 保存</button>
+                        <button onclick="setAnalyzeDefault()">⭐ 设为默认</button>
+                    </div>
+                    <div class="form-group">
+                        <textarea id="analyzePromptContent" placeholder="分析提示词内容"></textarea>
+                    </div>
+                    <button class="score-btn" id="analyzeBtn" onclick="performAnalysis()">
+                        🔍 第一步:分析作文
+                    </button>
+                </div>
+
+                <!-- 作文分析结果 -->
+                <div class="section" id="analysisSection" style="display: none;">
+                    <h3>📋 作文分析结果</h3>
+                    <div class="analysis-content" id="analysisContent">
+                        <!-- 动态生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：评分区域 -->
+            <div class="right-column">
+                <!-- 评分提示词管理 -->
+                <div class="section">
+                    <h3>🎯 评分提示词</h3>
+                    <div class="version-control">
+                        <label>版本选择:</label>
+                        <select id="scorePromptSelect" onchange="onScoreVersionChange()">
+                            <!-- 动态生成 -->
+                        </select>
+                        <button onclick="saveScoreVersion()">💾 保存</button>
+                        <button onclick="setScoreDefault()">⭐ 设为默认</button>
+                    </div>
+                    <div class="form-group">
+                        <textarea id="scorePromptContent" placeholder="评分提示词内容"></textarea>
+                    </div>
+                    <button class="score-btn" id="scoreBtn" onclick="performScoring()" disabled>
+                        🎯 第二步:AI评分
+                    </button>
+                </div>
+
+                <!-- 评分结果对比 -->
+                <div class="section">
+                    <h3>📊 评分结果对比</h3>
+                    <div class="scores-section">
+                        <div class="score-comparison">
+                            <!-- 原始评分 -->
+                            <div class="score-column original">
+                                <h4>📋 原始评分</h4>
+                                <div id="originalScores">
+                                    <!-- 动态生成 -->
+                                </div>
+                            </div>
+
+                            <!-- AI评分 -->
+                            <div class="score-column ai">
+                                <h4>🤖 AI评分</h4>
+                                <div id="aiScores">
+                                    <div class="empty-result">
+                                        <div class="icon">🎯</div>
+                                        <div>完成分析后<br>点击评分按钮</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 分页控件 -->
+        <div class="pagination">
+            <button id="prevBtn" onclick="previousEssay()">⬅️ 上一页</button>
+            <div class="page-info">
+                <span id="pageInfo">0 / 0</span>
+            </div>
+            <button id="nextBtn" onclick="nextEssay()">下一页 ➡️</button>
+            <div class="jump-group">
+                <label>跳转到:</label>
+                <input type="number" class="jump-input" id="jumpInput" min="1" placeholder="页码">
+                <button class="jump-btn" onclick="jumpToPage()">跳转</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8008/api';
+        // const API_BASE = 'http://192.168.3.88:8008/api';
+        let essaysData = [];
+        let currentIndex = -1;
+        let analyzePromptsData = [];  // 分析提示词
+        let scorePromptsData = [];     // 评分提示词
+        let essaysRequireData = [];    // 作文题目和要求数据
+        let selectedAnalyzeVersion = null;
+        let selectedScoreVersion = null;
+        let currentAnalysis = null;  // 存储当前作文的分析结果
+
+        // 从URL获取作文索引
+        function getEssayIndexFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            return parseInt(params.get('index')) || 0;
+        }
+
+        // 更新URL中的索引
+        function updateURL() {
+            const newURL = `${window.location.pathname}?index=${currentIndex}`;
+            window.history.pushState({}, '', newURL);
+        }
+
+        // 加载所有作文数据
+        async function loadAllEssays() {
+            try {
+                const response = await fetch(`${API_BASE}/essays`);
+                const data = await response.json();
+                essaysData = data.essays;
+
+                // 从URL获取初始索引
+                currentIndex = getEssayIndexFromURL();
+                if (currentIndex >= essaysData.length) {
+                    currentIndex = 0;
+                }
+
+                // 加载当前作文
+                loadCurrentEssay();
+                updatePagination();
+
+            } catch (error) {
+                showMessage('加载数据失败: ' + error.message, 'error');
+            }
+        }
+
+        // 加载当前作文
+        // 检测评分分制(根据原始评分判断)
+        function detectScoreScale(scoreData) {
+            // 检查所有维度的最大分值
+            for (const [dimName, dimData] of Object.entries(scoreData.dimensions)) {
+                if (dimData.max_score < 10) {
+                    return '10'; // 10分制
+                }
+            }
+            return '40'; // 40分制(默认)
+        }
+
+        // 自动选择合适的评分提示词
+        function autoSelectScorePrompt(scale) {
+            if (!scorePromptsData || scorePromptsData.length === 0) {
+                return;
+            }
+
+            // 查找包含对应分制的提示词版本
+            const appropriatePrompts = scorePromptsData.filter(p =>
+                p.version.includes(scale + '分制')
+            );
+
+            if (appropriatePrompts.length > 0) {
+                // 优先选择默认版本,否则选择第一个
+                const selectedPrompt = appropriatePrompts.find(p => p.is_default) || appropriatePrompts[0];
+                document.getElementById('scorePromptSelect').value = selectedPrompt.version;
+                onScoreVersionChange();
+                console.log(`自动选择 ${scale}分制 提示词: ${selectedPrompt.version}`);
+            }
+        }
+
+        function loadCurrentEssay() {
+            if (currentIndex < 0 || currentIndex >= essaysData.length) {
+                return;
+            }
+
+            const essay = essaysData[currentIndex];
+
+            // 显示学生信息
+            document.getElementById('studentName').textContent = `学生: ${essay.student_name}`;
+            document.getElementById('directoryName').textContent = essay.directory_name;
+
+            // 显示作文内容
+            document.getElementById('essayContent').textContent = essay.essay_content;
+
+            // 统计并显示字数
+            const wordCount = essay.essay_content.replace(/\s/g, '').length;
+            document.getElementById('wordCount').textContent = `(共 ${wordCount} 字)`;
+
+            // 显示原始评分
+            displayOriginalScores(essay.score_data);
+
+            // 自动检测并选择合适的评分提示词
+            const scale = detectScoreScale(essay.score_data);
+            autoSelectScorePrompt(scale);
+
+            // 根据directory_name自动填充作文题目和要求
+            loadEssayRequire(essay.directory_name);
+
+            // 清空AI评分结果
+            resetAIScores();
+
+            // 更新URL
+            updateURL();
+        }
+
+        // 根据directory_name加载作文题目和要求
+        function loadEssayRequire(directoryName) {
+            // 在essaysRequireData中查找对应的数据
+            const requireData = essaysRequireData.find(item => item.directory_name === directoryName);
+
+            if (requireData) {
+                // 自动填充作文题目和要求
+                document.getElementById('essayTitle').value = requireData.essay_title || '';
+                document.getElementById('essayRequirement').value = requireData.essay_requirement || '';
+            } else {
+                // 如果没有找到,清空输入框
+                document.getElementById('essayTitle').value = '';
+                document.getElementById('essayRequirement').value = '';
+            }
+        }
+
+        // 显示原始评分
+        function displayOriginalScores(scoreData) {
+            const container = document.getElementById('originalScores');
+            let html = `
+                <div class="score-item total">
+                    <span class="score-label">总分</span>
+                    <span class="score-value">${scoreData.total_score}</span>
+                </div>
+            `;
+
+            for (const [dimName, dimData] of Object.entries(scoreData.dimensions)) {
+                html += `
+                    <div class="score-item">
+                        <span class="score-label">${dimName}</span>
+                        <span class="score-value">${dimData.score} / ${dimData.max_score}</span>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // 重置AI评分区域
+        function resetAIScores() {
+            document.getElementById('aiScores').innerHTML = `
+                <div class="empty-result">
+                    <div class="icon">🎯</div>
+                    <div>点击"第二步:AI评分"按钮<br>获取AI评分结果</div>
+                </div>
+            `;
+            // 隐藏分析结果
+            document.getElementById('analysisSection').style.display = 'none';
+            currentAnalysis = null;
+            // 禁用评分按钮
+            document.getElementById('scoreBtn').disabled = true;
+        }
+
+        // 上一页
+        function previousEssay() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                loadCurrentEssay();
+                updatePagination();
+            }
+        }
+
+        // 下一页
+        function nextEssay() {
+            if (currentIndex < essaysData.length - 1) {
+                currentIndex++;
+                loadCurrentEssay();
+                updatePagination();
+            }
+        }
+
+        // 跳转到指定页
+        function jumpToPage() {
+            const input = document.getElementById('jumpInput');
+            const pageNum = parseInt(input.value);
+
+            if (isNaN(pageNum)) {
+                showMessage('⚠️ 请输入有效的页码', 'error');
+                return;
+            }
+
+            if (pageNum < 1 || pageNum > essaysData.length) {
+                showMessage(`⚠️ 页码范围: 1-${essaysData.length}`, 'error');
+                return;
+            }
+
+            currentIndex = pageNum - 1;
+            loadCurrentEssay();
+            updatePagination();
+            input.value = '';
+        }
+
+        // 更新分页控件
+        function updatePagination() {
+            if (essaysData.length === 0) return;
+
+            document.getElementById('pageInfo').textContent = `${currentIndex + 1} / ${essaysData.length}`;
+            document.getElementById('prevBtn').disabled = currentIndex <= 0;
+            document.getElementById('nextBtn').disabled = currentIndex >= essaysData.length - 1;
+        }
+
+        // 支持回车键跳转
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('jumpInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    jumpToPage();
+                }
+            });
+        });
+
+        // 加载提示词列表
+        async function loadPrompts() {
+            try {
+                // 加载分析提示词
+                const analyzeResponse = await fetch(`${API_BASE}/prompts?type=analyze`);
+                const analyzeData = await analyzeResponse.json();
+                analyzePromptsData = analyzeData.prompts;
+
+                // 加载评分提示词
+                const scoreResponse = await fetch(`${API_BASE}/prompts?type=score`);
+                const scoreData = await scoreResponse.json();
+                scorePromptsData = scoreData.prompts;
+
+                // 填充分析提示词选择器
+                const analyzeSelect = document.getElementById('analyzePromptSelect');
+                analyzeSelect.innerHTML = analyzePromptsData.map(p => {
+                    const label = p.version + (p.is_default ? ' (默认)' : '');
+                    return `<option value="${p.version}">${label}</option>`;
+                }).join('');
+
+                // 选择默认分析版本
+                if (analyzePromptsData.length > 0) {
+                    const defaultAnalyze = analyzePromptsData.find(p => p.is_default) || analyzePromptsData[0];
+                    analyzeSelect.value = defaultAnalyze.version;
+                    onAnalyzeVersionChange();
+                }
+
+                // 填充评分提示词选择器
+                const scoreSelect = document.getElementById('scorePromptSelect');
+                scoreSelect.innerHTML = scorePromptsData.map(p => {
+                    const label = p.version + (p.is_default ? ' (默认)' : '');
+                    return `<option value="${p.version}">${label}</option>`;
+                }).join('');
+
+                // 选择默认评分版本
+                if (scorePromptsData.length > 0) {
+                    const defaultScore = scorePromptsData.find(p => p.is_default) || scorePromptsData[0];
+                    scoreSelect.value = defaultScore.version;
+                    onScoreVersionChange();
+                }
+
+            } catch (error) {
+                console.error('加载提示词失败:', error);
+            }
+        }
+
+        // 分析提示词版本变更
+        function onAnalyzeVersionChange() {
+            const version = document.getElementById('analyzePromptSelect').value;
+            const prompt = analyzePromptsData.find(p => p.version === version);
+            if (prompt) {
+                selectedAnalyzeVersion = version;
+                document.getElementById('analyzePromptContent').value = prompt.prompt;
+            }
+        }
+
+        // 评分提示词版本变更
+        function onScoreVersionChange() {
+            const version = document.getElementById('scorePromptSelect').value;
+            const prompt = scorePromptsData.find(p => p.version === version);
+            if (prompt) {
+                selectedScoreVersion = version;
+                document.getElementById('scorePromptContent').value = prompt.prompt;
+            }
+        }
+
+        // 保存分析提示词版本
+        async function saveAnalyzeVersion() {
+            const content = document.getElementById('analyzePromptContent').value.trim();
+            if (!content) {
+                showMessage('⚠️ 请输入分析提示词内容', 'error');
+                return;
+            }
+
+            const versionName = prompt('请输入分析提示词版本名称:');
+            if (!versionName) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/prompts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: content,
+                        version_name: versionName,
+                        type: 'analyze'
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showMessage('✅ 分析提示词保存成功!', 'success');
+                    await loadPrompts();
+                    document.getElementById('analyzePromptSelect').value = result.prompt.version;
+                    onAnalyzeVersionChange();
+                } else {
+                    const error = await response.json();
+                    showMessage('❌ 保存失败: ' + error.detail, 'error');
+                }
+            } catch (error) {
+                showMessage('❌ 保存失败: ' + error.message, 'error');
+            }
+        }
+
+        // 设置分析提示词为默认
+        async function setAnalyzeDefault() {
+            const version = document.getElementById('analyzePromptSelect').value;
+            if (!version) {
+                showMessage('⚠️ 请先选择一个提示词版本', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/prompts/${encodeURIComponent(version)}/default?type=analyze`, {
+                    method: 'PUT'
+                });
+
+                if (response.ok) {
+                    showMessage('✅ 已设置为默认分析提示词', 'success');
+                    await loadPrompts();
+                } else {
+                    const error = await response.json();
+                    showMessage('❌ 设置失败: ' + error.detail, 'error');
+                }
+            } catch (error) {
+                showMessage('❌ 设置失败: ' + error.message, 'error');
+            }
+        }
+
+        // 保存评分提示词版本
+        async function saveScoreVersion() {
+            const content = document.getElementById('scorePromptContent').value.trim();
+            if (!content) {
+                showMessage('⚠️ 请输入评分提示词内容', 'error');
+                return;
+            }
+
+            const versionName = prompt('请输入评分提示词版本名称:');
+            if (!versionName) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/prompts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: content,
+                        version_name: versionName,
+                        type: 'score'
+                    })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    showMessage('✅ 评分提示词保存成功!', 'success');
+                    await loadPrompts();
+                    document.getElementById('scorePromptSelect').value = result.prompt.version;
+                    onScoreVersionChange();
+                } else {
+                    const error = await response.json();
+                    showMessage('❌ 保存失败: ' + error.detail, 'error');
+                }
+            } catch (error) {
+                showMessage('❌ 保存失败: ' + error.message, 'error');
+            }
+        }
+
+        // 设置评分提示词为默认
+        async function setScoreDefault() {
+            const version = document.getElementById('scorePromptSelect').value;
+            if (!version) {
+                showMessage('⚠️ 请先选择一个提示词版本', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/prompts/${encodeURIComponent(version)}/default?type=score`, {
+                    method: 'PUT'
+                });
+
+                if (response.ok) {
+                    showMessage('✅ 已设置为默认评分提示词', 'success');
+                    await loadPrompts();
+                } else {
+                    const error = await response.json();
+                    showMessage('❌ 设置失败: ' + error.detail, 'error');
+                }
+            } catch (error) {
+                showMessage('❌ 设置失败: ' + error.message, 'error');
+            }
+        }
+
+        // 执行作文分析(第一步)
+        async function performAnalysis() {
+            if (currentIndex < 0 || currentIndex >= essaysData.length) {
+                showMessage('⚠️ 数据未加载', 'error');
+                return;
+            }
+
+            const essay = essaysData[currentIndex];
+            const title = document.getElementById('essayTitle').value.trim();
+            const requirement = document.getElementById('essayRequirement').value.trim();
+
+            // 使用分析提示词输入框的内容
+            const promptContent = document.getElementById('analyzePromptContent').value.trim();
+            if (!promptContent) {
+                showMessage('⚠️ 请输入分析提示词', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('analyzeBtn');
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> AI分析中...';
+
+            try {
+                const response = await fetch(`${API_BASE}/ai-analyze`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        essay_content: essay.essay_content,
+                        essay_title: title,
+                        essay_requirement: requirement,
+                        prompt: promptContent
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    currentAnalysis = result.analysis;
+                    displayAnalysis(result.analysis);
+                    // 启用评分按钮
+                    document.getElementById('scoreBtn').disabled = false;
+                    showMessage('✅ 作文分析完成! 现在可以进行评分了', 'success');
+                } else {
+                    showMessage('❌ AI分析失败: ' + result.error, 'error');
+                    console.error('AI返回:', result.raw_response);
+                }
+            } catch (error) {
+                showMessage('❌ AI分析失败: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        // 显示分析结果
+        function displayAnalysis(analysis) {
+            const section = document.getElementById('analysisSection');
+            const container = document.getElementById('analysisContent');
+
+            let html = '';
+
+            // 综合评价
+            if (analysis.综合评价) {
+                const overall = analysis.综合评价;
+                html += `
+                    <div class="analysis-item">
+                        <div class="analysis-title">
+                            📊 综合评价
+                            <span class="overall-quality">${overall.整体质量 || ''}</span>
+                        </div>
+                        ${overall.总评 ? `<p style="line-height: 1.8; margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #667eea;">${overall.总评}</p>` : ''}
+                        <p style="margin-bottom: 8px;"><strong>主要优点:</strong></p>
+                        <ul class="analysis-list">
+                            ${(overall.主要优点 || []).map(item => `<li class="highlight-item">${item}</li>`).join('')}
+                        </ul>
+                        <p style="margin-bottom: 8px; margin-top: 12px;"><strong>主要问题:</strong></p>
+                        <ul class="analysis-list">
+                            ${(overall.主要问题 || []).map(item => `<li class="error-item">${item}</li>`).join('')}
+                        </ul>
+                        <p style="margin-top: 12px;"><strong>总体建议:</strong> ${overall.总体建议 || ''}</p>
+                    </div>
+                `;
+            }
+
+            // 作文要求评价
+            if (analysis.作文要求评价 && analysis.作文要求评价.length > 0) {
+                html += `
+                    <div class="analysis-item">
+                        <div class="analysis-title">
+                            📋 作文要求评价
+                        </div>
+                        ${analysis.作文要求评价.map(item => `
+                            <div style="margin-bottom: 12px; padding: 10px; background: #f8f9fa; border-radius: 6px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                    <span style="font-weight: bold; color: #333;">${item.要求}</span>
+                                    <span style="color: #667eea; font-weight: bold; font-size: 16px;">${item.评分} / ${item.满分}分</span>
+                                </div>
+                                <div style="background: #e0e0e0; height: 6px; border-radius: 3px; margin-bottom: 6px;">
+                                    <div style="background: linear-gradient(90deg, #4caf50, #667eea); height: 100%; width: ${(item.评分 / item.满分) * 100}%; border-radius: 3px;"></div>
+                                </div>
+                                <p style="color: #666; font-size: 13px;">${item.评价}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            // 旁批点评
+            if (analysis.旁批点评) {
+                const pangpi = analysis.旁批点评;
+                let pangpiHtml = '';
+
+                // 亮点句子
+                if (pangpi.亮点句子 && pangpi.亮点句子.length > 0) {
+                    pangpiHtml += `
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-weight: bold; color: #ffd700; margin-bottom: 8px;">🌟 亮点句子 (${pangpi.亮点句子.length}处)</div>
+                            <ul class="analysis-list">
+                                ${pangpi.亮点句子.map(item =>
+                                    `<li class="highlight-item">
+                                        <span style="color: #666; font-style: italic;">"${item.内容}"</span><br>
+                                        <span style="color: #4caf50;">${item.评价}</span>
+                                    </li>`
+                                ).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                // 搭配提升
+                if (pangpi.搭配提升 && pangpi.搭配提升.length > 0) {
+                    pangpiHtml += `
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-weight: bold; color: #ff9800; margin-bottom: 8px;">🔧 搭配提升 (${pangpi.搭配提升.length}处)</div>
+                            <ul class="analysis-list">
+                                ${pangpi.搭配提升.map(item =>
+                                    `<li class="suggestion-item">
+                                        "${item.原文}" → "${item.建议}"<br>
+                                        <span style="color: #666; font-size: 13px;">${item.理由}</span>
+                                    </li>`
+                                ).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                // 字词纠错
+                if (pangpi.字词纠错 && pangpi.字词纠错.length > 0) {
+                    pangpiHtml += `
+                        <div style="margin-bottom: 15px;">
+                            <div style="font-weight: bold; color: #2196f3; margin-bottom: 8px;">✏️ 字词纠错 (${pangpi.字词纠错.length}处)</div>
+                            <ul class="analysis-list">
+                                ${pangpi.字词纠错.map(item =>
+                                    `<li class="error-item">
+                                        ${item.问题}: 应改为 "${item.应改为}"
+                                    </li>`
+                                ).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                if (pangpiHtml) {
+                    html += `
+                        <div class="analysis-item">
+                            <div class="analysis-title">
+                                📌 旁批点评
+                            </div>
+                            ${pangpiHtml}
+                        </div>
+                    `;
+                }
+            }
+
+            // 错别字统计
+            if (analysis.错别字总数 !== undefined) {
+                html += `
+                    <div class="analysis-item">
+                        <div class="analysis-title">
+                            ❌ 错别字统计
+                            <span class="analysis-badge">${analysis.错别字总数} 个</span>
+                        </div>
+                        <ul class="analysis-list">
+                            ${(analysis.错别字 || []).map(item =>
+                                `<li class="error-item">${item.位置}: "${item.错误}" → "${item.正确}"</li>`
+                            ).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // 语病标注
+            if (analysis.语病总数 !== undefined) {
+                html += `
+                    <div class="analysis-item">
+                        <div class="analysis-title">
+                            ⚠️ 语病标注
+                            <span class="analysis-badge">${analysis.语病总数} 处</span>
+                        </div>
+                        <ul class="analysis-list">
+                            ${(analysis.语病 || []).map(item =>
+                                `<li class="error-item">
+                                    <strong>${item.位置}:</strong> ${item.问题描述}<br>
+                                    <span style="color: #999;">原句: ${item.原句}</span><br>
+                                    <span style="color: #4caf50;">建议: ${item.修改建议}</span>
+                                </li>`
+                            ).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // 优点亮点
+            if (analysis.优点亮点 && analysis.优点亮点.length > 0) {
+                html += `
+                    <div class="analysis-item">
+                        <div class="analysis-title">
+                            ✨ 优点亮点
+                            <span class="analysis-badge">${analysis.优点亮点.length} 处</span>
+                        </div>
+                        <ul class="analysis-list">
+                            ${analysis.优点亮点.map(item =>
+                                `<li class="highlight-item">
+                                    <strong>${item.位置}:</strong> ${item.评价}<br>
+                                    <span style="color: #666; font-style: italic;">"${item.内容}"</span>
+                                </li>`
+                            ).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // 改进建议
+            if (analysis.改进建议 && analysis.改进建议.length > 0) {
+                html += `
+                    <div class="analysis-item">
+                        <div class="analysis-title">
+                            💡 改进建议
+                            <span class="analysis-badge">${analysis.改进建议.length} 条</span>
+                        </div>
+                        <ul class="analysis-list">
+                            ${analysis.改进建议.map(item =>
+                                `<li class="suggestion-item">
+                                    <strong>${item.方面}:</strong> ${item.具体建议}
+                                </li>`
+                            ).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html || '<p style="color: #999; text-align: center;">暂无分析结果</p>';
+            section.style.display = 'block';
+        }
+
+        // 执行AI评分(第二步)
+        async function performScoring() {
+            if (currentIndex < 0 || currentIndex >= essaysData.length) {
+                showMessage('⚠️ 数据未加载', 'error');
+                return;
+            }
+
+            const essay = essaysData[currentIndex];
+            const title = document.getElementById('essayTitle').value.trim();
+            const requirement = document.getElementById('essayRequirement').value.trim();
+
+            // 使用评分提示词输入框的内容
+            const promptContent = document.getElementById('scorePromptContent').value.trim();
+
+            if (!promptContent) {
+                showMessage('⚠️ 请输入评分提示词', 'error');
+                return;
+            }
+
+            const btn = document.getElementById('scoreBtn');
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> AI评分中...';
+
+            try {
+                const response = await fetch(`${API_BASE}/ai-score`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        essay_content: essay.essay_content,
+                        essay_title: title,
+                        essay_requirement: requirement,
+                        prompt: promptContent,
+                        analysis: currentAnalysis,  // 传递分析结果
+                        original_score_data: essay.score_data  // 传递原始评分数据,用于判断分制
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    displayAIScores(result.score_data);
+                    showMessage('✅ AI评分完成!', 'success');
+                } else {
+                    showMessage('❌ AI评分失败: ' + result.error, 'error');
+                    console.error('AI返回:', result.raw_response);
+                }
+            } catch (error) {
+                showMessage('❌ AI评分失败: ' + error.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        // 显示AI评分结果
+        function displayAIScores(scoreData) {
+            const container = document.getElementById('aiScores');
+            let html = `
+                <div class="score-item ai-total">
+                    <span class="score-label">总分</span>
+                    <span class="score-value">${scoreData.total_score}</span>
+                </div>
+            `;
+
+            for (const [dimName, dimData] of Object.entries(scoreData.dimensions)) {
+                html += `
+                    <div class="score-item">
+                        <span class="score-label">${dimName}</span>
+                        <span class="score-value">${dimData.score} / ${dimData.max_score}</span>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // 返回主页
+        function goBack() {
+            window.location.href = `index.html?index=${currentIndex}`;
+        }
+
+        // 显示消息
+        function showMessage(text, type = 'success') {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.style.background = type === 'success' ? '#4caf50' : '#f44336';
+            messageEl.style.display = 'block';
+
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
+
+        // 加载作文题目和要求数据
+        async function loadEssaysRequire() {
+            try {
+                const response = await fetch(`${API_BASE}/essays-require`);
+                const result = await response.json();
+                essaysRequireData = result.data || [];
+                console.log('作文要求数据加载成功:', essaysRequireData.length, '条');
+            } catch (error) {
+                console.error('加载作文要求数据失败:', error);
+                essaysRequireData = [];
+            }
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            loadEssaysRequire();  // 先加载作文要求数据
+            loadAllEssays();
+            loadPrompts();
+        });
+    </script>
+</body>
+</html>

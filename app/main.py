@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
-from app.api import users, batches, essays, evaluations, prompts
+from app.api import users, batches, essays, evaluations, prompts, feedbacks
 from app.utils import logger
 from app.config import settings
 
@@ -35,6 +35,7 @@ app.include_router(batches.router, prefix="/api/batches", tags=["批次管理"])
 app.include_router(essays.router, prefix="/api/essays", tags=["作文管理"])
 app.include_router(evaluations.router, prefix="/api/evaluations", tags=["评价评分"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["提示词管理"])
+app.include_router(feedbacks.router, prefix="/api/feedbacks", tags=["用户反馈"])
 
 # 挂载静态文件目录
 project_root = Path(__file__).parent.parent

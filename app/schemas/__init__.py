@@ -13,6 +13,14 @@ from app.schemas.evaluation import (
 )
 from app.schemas.score import ScoreCreateRequest, ScoreResponse, ScoreListResponse
 from app.schemas.prompt import PromptCreate, PromptUpdate, PromptResponse, PromptListResponse
+from app.schemas.feedback import (
+    FeedbackComparisonRequest,
+    FeedbackCustomScoreRequest,
+    FeedbackCommentRequest,
+    FeedbackIssueMarkRequest,
+    FeedbackResponse,
+    FeedbackListResponse
+)
 from app.schemas.common import Response, ErrorResponse
 
 __all__ = [
@@ -37,6 +45,12 @@ __all__ = [
     "PromptUpdate",
     "PromptResponse",
     "PromptListResponse",
+    "FeedbackComparisonRequest",
+    "FeedbackCustomScoreRequest",
+    "FeedbackCommentRequest",
+    "FeedbackIssueMarkRequest",
+    "FeedbackResponse",
+    "FeedbackListResponse",
     "Response",
     "ErrorResponse",
 ]

@@ -500,18 +500,34 @@ async def ai_score_essay(
         scores = json.loads(ai_response)
 
         # 验证分数格式
-        required_dimensions = ["中心立意", "语言表达", "篇章结构", "文章选材", "内容情感"]
-        max_scores = {"中心立意": 20, "语言表达": 25, "篇章结构": 15, "文章选材": 15, "内容情感": 25}
+        required_dimensions = ["theme_and_intent", "language_expression", "structure", "content_selection", "emotion_and_content"]
+        max_scores = {
+            "theme_and_intent": 20,       # 中心立意
+            "language_expression": 25,    # 语言表达
+            "structure": 15,              # 篇章结构
+            "content_selection": 15,      # 文章选材
+            "emotion_and_content": 25     # 内容情感
+        }
 
         dimensions = {}
         dimensions_sum = 0
+    
+        def get_cn_dim_name(en_dim):
+            dim_mapping = {
+                "theme_and_intent": "中心立意",
+                "language_expression": "语言表达",
+                "structure": "篇章结构",
+                "content_selection": "文章选材",
+                "emotion_and_content": "内容情感"
+            }
+            return dim_mapping.get(en_dim, en_dim)
 
         for dim in required_dimensions:
             if dim not in scores:
-                raise ValueError(f"缺少维度: {dim}")
+                raise ValueError(f"缺少维度: {dim}（{get_cn_dim_name(dim)}）")  # 可选：加中文提示更友好
             score = float(scores[dim])
             if score < 0 or score > max_scores[dim]:
-                raise ValueError(f"维度 {dim} 分数超出范围: {score}")
+                raise ValueError(f"维度 {dim}（{get_cn_dim_name(dim)}）分数超出范围: {score}（有效值0-{max_scores[dim]}）")
             dimensions[dim] = {
                 "score": score,
                 "max_score": max_scores[dim]

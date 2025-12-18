@@ -929,6 +929,13 @@
     <script>
         const API_BASE = 'http://localhost:8008/api';
         const TOTAL_PAGES = 934; // 固定总页数
+        const scoreDimensionMap = {
+            'theme_and_intent': '中心立意',
+            'language_expression': '语言表达',
+            'structure': '篇章结构',
+            'content_selection': '文章选材',
+            'emotion_and_content': '内容情感'
+        };
         let currentEssay = null;      // 当前作文详情
         let currentEssayId = null;    // 当前作文ID（与页数一致）
         let currentPage = 1;          // 当前页
@@ -1947,7 +1954,7 @@
         // 显示AI评分结果
         function displayAIScores(scoreData) {
             const container = document.getElementById('aiScores');
-
+        
             if (!scoreData || !scoreData.dimensions) {
                 container.innerHTML = `
                     <div class="empty-result">
@@ -1957,23 +1964,26 @@
                 `;
                 return;
             }
-
+        
             let html = `
                 <div class="score-item ai-total">
                     <span class="score-label">AI总分</span>
                     <span class="score-value">${scoreData.total_score || 0}</span>
                 </div>
             `;
-
+            
+            // 核心修改：使用映射表转换英文key为中文显示
             for (const [dimName, dimData] of Object.entries(scoreData.dimensions)) {
+                // 取中文名称，无映射则显示原key
+                const displayName = scoreDimensionMap[dimName] || dimName;
                 html += `
                     <div class="score-item">
-                        <span class="score-label">${dimName}</span>
+                        <span class="score-label">${displayName}</span>
                         <span class="score-value">${dimData.score || 0} / ${dimData.max_score || 0}</span>
                     </div>
                 `;
             }
-
+        
             container.innerHTML = html;
         }
 

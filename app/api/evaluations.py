@@ -374,7 +374,7 @@ async def ai_analyze_essay(
         logger.info(f"作文评价完成: essay_id={request.essay_id}, evaluation_id={evaluation.id}")
 
         # 验证必需字段
-        required_fields = ["综合评价", "错别字", "错别字总数", "语病", "语病总数", "优点亮点", "改进建议"]
+        required_fields = ["overall_evaluation", "typos", "typo_count", "grammar_errors", "grammar_error_count", "strengths", "improvement_suggestions"]
         for field in required_fields:
             if field not in analysis:
                 raise ValueError(f"缺少字段: {field}")

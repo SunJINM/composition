@@ -14,7 +14,7 @@ pydantic==2.5.2
 pydantic-settings==2.1.0
 
 # AI/ML
-openai==1.3.7
+openai
 
 # Utilities
 python-jose[cryptography]==3.3.0

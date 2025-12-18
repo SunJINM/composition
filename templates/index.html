@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>作文评分系统</title>
+    <title>作文列表 - 作文评分系统</title>
     <style>
         * {
             margin: 0;
@@ -31,42 +31,101 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             padding: 30px;
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .header h1 {
             font-size: 2.5em;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .user-info {
+            text-align: right;
+        }
+
+        .user-info .phone {
+            font-size: 1.2em;
             margin-bottom: 10px;
         }
 
-        .controls {
-            padding: 20px 30px;
+        .logout-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+            padding: 8px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        .filters {
+            padding: 25px 30px;
             background: #f8f9fa;
             border-bottom: 2px solid #e0e0e0;
             display: flex;
             align-items: center;
-            gap: 15px;
+            gap: 20px;
             flex-wrap: wrap;
         }
 
-        .controls label {
-            font-weight: bold;
-            color: #333;
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .controls select {
+        .filter-group label {
+            font-weight: bold;
+            color: #333;
+            white-space: nowrap;
+        }
+
+        .filter-group select, .filter-group input {
             padding: 10px 15px;
             border: 2px solid #667eea;
             border-radius: 8px;
             font-size: 16px;
             background: white;
-            cursor: pointer;
             min-width: 200px;
         }
 
-        .controls button {
-            padding: 10px 20px;
+        .filter-group input {
+            min-width: 250px;
+        }
+
+        .search-btn {
+            padding: 10px 30px;
             background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+
+        .search-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+
+        .reset-btn {
+            padding: 10px 30px;
+            background: #6c757d;
             color: white;
             border: none;
             border-radius: 8px;
@@ -75,297 +134,111 @@
             transition: all 0.3s;
         }
 
-        .controls button:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
+        .reset-btn:hover {
+            background: #5a6268;
         }
 
-        .controls .ai-btn {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
-            font-weight: bold;
-        }
-
-        .controls .ai-btn:hover {
-            background: linear-gradient(135deg, #ee5a6f 0%, #c44569 100%);
-        }
-
-        .essay-info {
-            padding: 20px 30px;
-            background: #fff9e6;
-            border-bottom: 2px solid #e0e0e0;
-        }
-
-        .essay-info h2 {
-            color: #764ba2;
-            margin-bottom: 10px;
-        }
-
-        .content-area {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto auto;
-            gap: 30px;
+        .essay-list {
             padding: 30px;
+            min-height: 500px;
         }
 
-        .section {
+        .essay-card {
             background: #f8f9fa;
-            padding: 20px;
             border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            border-left: 5px solid #667eea;
         }
 
-        .section h3 {
-            color: #667eea;
-            margin-bottom: 15px;
-            font-size: 1.3em;
-            border-bottom: 3px solid #667eea;
-            padding-bottom: 10px;
+        .essay-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
         }
 
-        .image-container, .pdf-container {
-            width: 100%;
-            max-height: 600px;
-            overflow: auto;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            background: white;
-        }
-
-        .image-container img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-
-        .pdf-container iframe {
-            width: 100%;
-            height: 600px;
-            border: none;
-        }
-
-        .pdf-container canvas {
-            width: 100%;
-            height: auto;
-            display: block;
-            margin-bottom: 10px;
-        }
-
-        .pdf-viewer-wrapper {
-            width: 100%;
-            height: 600px;
-            overflow-y: auto;
-            background: #525659;
+        .essay-card-header {
             display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 10px;
-        }
-
-        .pdf-loading {
-            color: white;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .text-content {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            line-height: 1.8;
-            white-space: pre-wrap;
-            height: 600px;
-            overflow-y: auto;
-            border: 2px solid #ddd;
-        }
-
-        .scores-container {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            max-height: 520px;
-            overflow-y: auto;
-        }
-
-        .score-system-selector {
-            background: #e3f2fd;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border: 2px solid #2196f3;
-        }
-
-        .score-system-selector label {
-            font-weight: bold;
-            color: #1976d2;
-            margin-right: 10px;
-        }
-
-        .score-system-selector select {
-            padding: 8px 15px;
-            border: 2px solid #2196f3;
-            border-radius: 6px;
-            font-size: 16px;
-            background: white;
-            cursor: pointer;
-            font-weight: bold;
-        }
-
-        .warning-box {
-            background: #fff3cd;
-            border: 2px solid #ffc107;
-            border-left: 5px solid #ff9800;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .warning-box.show {
-            display: block;
-            animation: shake 0.5s;
-        }
-
-        .warning-box .warning-icon {
-            color: #ff9800;
-            font-size: 20px;
-            margin-right: 10px;
-        }
-
-        .warning-box .warning-text {
-            color: #856404;
-            font-weight: bold;
-        }
-
-        .warning-box .warning-detail {
-            color: #856404;
-            margin-top: 5px;
-            font-size: 14px;
-        }
-
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-            20%, 40%, 60%, 80% { transform: translateX(5px); }
-        }
-
-        .score-item {
-            display: flex;
-            align-items: center;
             justify-content: space-between;
+            align-items: flex-start;
             margin-bottom: 15px;
-            padding: 15px;
-            background: #f0f4ff;
-            border-radius: 8px;
-            transition: transform 0.2s;
         }
 
-        .score-item:hover {
-            transform: translateX(5px);
-        }
-
-        .score-item.total {
-            background: #e8f5e9;
-            border: 2px solid #4caf50;
-        }
-
-        .score-label {
-            font-weight: bold;
+        .essay-title {
+            font-size: 1.3em;
             color: #333;
-            flex: 1;
+            font-weight: bold;
+            margin-bottom: 5px;
         }
 
-        .score-input-group {
+        .essay-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .meta-item {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
-        .score-input {
-            width: 80px;
-            padding: 8px 12px;
-            border: 2px solid #667eea;
-            border-radius: 6px;
-            font-size: 16px;
-            text-align: center;
+        .meta-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .meta-value {
+            color: #333;
             font-weight: bold;
         }
 
-        .score-input:focus {
-            outline: none;
-            border-color: #764ba2;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .max-score {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .save-btn {
-            width: 100%;
-            padding: 15px;
+        .score-badge {
+            display: inline-block;
+            padding: 5px 15px;
             background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
             color: white;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+
+        .score-system-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            background: #2196f3;
+            color: white;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .eval-count {
+            color: #ff9800;
+            font-weight: bold;
+        }
+
+        .enter-btn {
+            padding: 10px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
             border: none;
             border-radius: 8px;
-            font-size: 18px;
-            font-weight: bold;
+            font-size: 16px;
             cursor: pointer;
-            margin-top: 20px;
-            transition: transform 0.2s;
+            transition: all 0.3s;
+            font-weight: bold;
+            white-space: nowrap;
         }
 
-        .save-btn:hover {
-            transform: scale(1.02);
-        }
-
-        .save-btn:active {
-            transform: scale(0.98);
-        }
-
-        .message {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 25px;
-            background: #4caf50;
-            color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            display: none;
-            animation: slideIn 0.3s ease-out;
-            z-index: 1000;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #667eea;
-            font-size: 18px;
-        }
-
-        .error {
-            background: #f44336;
-            color: white;
-            padding: 20px;
-            margin: 20px;
-            border-radius: 8px;
+        .enter-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
         }
 
         .pagination {
-            padding: 20px 30px;
+            padding: 25px 30px;
             background: #f8f9fa;
             border-top: 2px solid #e0e0e0;
             display: flex;
@@ -376,7 +249,7 @@
         }
 
         .pagination button {
-            padding: 10px 20px;
+            padding: 10px 25px;
             background: #667eea;
             color: white;
             border: none;
@@ -384,7 +257,6 @@
             font-size: 16px;
             cursor: pointer;
             transition: all 0.3s;
-            min-width: 100px;
         }
 
         .pagination button:hover:not(:disabled) {
@@ -398,49 +270,73 @@
             opacity: 0.6;
         }
 
-        .pagination .page-info {
+        .page-info {
             padding: 10px 20px;
             background: white;
             border: 2px solid #667eea;
             border-radius: 8px;
             font-weight: bold;
             color: #667eea;
-            min-width: 150px;
+            min-width: 200px;
             text-align: center;
         }
 
-        .pagination .jump-group {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #667eea;
+            font-size: 1.3em;
         }
 
-        .pagination .jump-input {
-            width: 80px;
-            padding: 10px;
-            border: 2px solid #667eea;
+        .empty {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #f44336;
+            color: white;
+            padding: 20px;
+            margin: 20px;
             border-radius: 8px;
-            font-size: 16px;
             text-align: center;
         }
 
-        .pagination .jump-btn {
-            min-width: 80px;
-        }
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
 
+            .user-info {
+                text-align: center;
+                margin-top: 15px;
+            }
 
-        @media (max-width: 1024px) {
-            .content-area {
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filter-group select, .filter-group input {
+                width: 100%;
+                min-width: auto;
+            }
+
+            .essay-meta {
                 grid-template-columns: 1fr;
-                grid-template-rows: auto;
             }
 
-            .text-content {
-                height: 400px;
-            }
-
-            .scores-container {
-                max-height: 400px;
+            .essay-card-header {
+                flex-direction: column;
+                gap: 15px;
             }
         }
     </style>
@@ -448,480 +344,251 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📝 作文评分系统</h1>
-            <p>作文批改与分数管理平台</p>
+            <div>
+                <h1>📝 作文评分系统</h1>
+                <p>作文批改与分数管理平台</p>
+            </div>
+            <div class="user-info">
+                <div class="phone">用户: <span id="userPhone">未登录</span></div>
+                <button class="logout-btn" onclick="logout()">退出登录</button>
+            </div>
         </div>
 
-        <div class="controls">
-            <label for="essaySelect">选择作文:</label>
-            <select id="essaySelect">
-                <option value="">加载中...</option>
-            </select>
-            <button onclick="loadEssay()">加载作文</button>
-            <button class="ai-btn" onclick="goToAIScoring()">🤖 AI评分</button>
-            <span id="totalCount" style="margin-left: auto; color: #666;"></span>
+        <div class="filters">
+            <div class="filter-group">
+                <label>📚 批次筛选:</label>
+                <select id="batchFilter">
+                    <option value="">全部批次</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>🎓 年级筛选:</label>
+                <select id="gradeFilter">
+                    <option value="">全部年级</option>
+                    <option value="1">7年级</option>
+                    <option value="2">8年级</option>
+                    <option value="3">9年级</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>🔍 学生姓名:</label>
+                <input type="text" id="studentSearch" placeholder="输入学生姓名搜索">
+            </div>
+            <button class="search-btn" onclick="searchEssays()">搜索</button>
+            <button class="reset-btn" onclick="resetFilters()">重置</button>
         </div>
 
-        <div class="essay-info" id="essayInfo" style="display: none;">
-            <h2 id="studentName"></h2>
-            <p><strong>目录:</strong> <span id="directoryName"></span></p>
-        </div>
-
-        <div class="content-area" id="contentArea" style="display: none;">
-            <!-- 第一行：作文答卷 和 作文内容 -->
-            <div class="section">
-                <h3>📷 作文答卷</h3>
-                <div class="image-container" id="imageContainer">
-                    <img id="essayImage" src="" alt="作文答卷">
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>📖 作文内容</h3>
-                <div class="text-content" id="essayContent"></div>
-            </div>
-
-            <!-- 第二行：分析报告 和 分数管理 -->
-            <div class="section">
-                <h3>📄 分析报告</h3>
-                <div class="pdf-container" id="pdfContainer">
-                    <div class="pdf-viewer-wrapper" id="pdfViewerWrapper">
-                        <div class="pdf-loading">正在加载PDF...</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="section">
-                <h3>📊 分数管理</h3>
-                <div class="scores-container" id="scoresContainer">
-                    <!-- 分数项将通过JavaScript动态生成 -->
-                </div>
-                <button class="save-btn" onclick="saveScores()">💾 保存分数</button>
-            </div>
+        <div class="essay-list" id="essayList">
+            <div class="loading">正在加载作文列表...</div>
         </div>
 
         <div class="pagination" id="pagination" style="display: none;">
-            <button id="prevBtn" onclick="previousEssay()">⬅️ 上一页</button>
+            <button id="prevBtn" onclick="previousPage()">⬅️ 上一页</button>
             <div class="page-info">
-                <span id="pageInfo">0 / 0</span>
+                <span id="pageInfo">第 0 页 / 共 0 页 (共 0 篇)</span>
             </div>
-            <button id="nextBtn" onclick="nextEssay()">下一页 ➡️</button>
-            <div class="jump-group">
-                <label>跳转到:</label>
-                <input type="number" class="jump-input" id="jumpInput" min="1" placeholder="页码">
-                <button class="jump-btn" onclick="jumpToPage()">跳转</button>
-            </div>
+            <button id="nextBtn" onclick="nextPage()">下一页 ➡️</button>
         </div>
     </div>
 
-    <div class="message" id="message"></div>
-
-    <!-- PDF.js 库 -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script>
-        // 配置PDF.js worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    </script>
+        const API_BASE = '/api';
+        let currentPage = 1;
+        const pageSize = 20;
+        let totalPages = 0;
+        let totalCount = 0;
 
-    <script>
-        let essaysData = [];
-        let currentIndex = -1;
-        const API_BASE = 'http://localhost:8008/api';
-        // const API_BASE = 'http://192.168.3.88:8008/api';
+        // 页面加载时初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            loadUserInfo();
+            loadBatches();
+            loadEssays();
 
-        // 使用PDF.js加载和渲染PDF
-        async function loadPdfWithPdfJs(pdfUrl) {
-            const container = document.getElementById('pdfViewerWrapper');
-            container.innerHTML = '<div class="pdf-loading">正在加载PDF...</div>';
-
-            try {
-                // 加载PDF文档
-                const loadingTask = pdfjsLib.getDocument(pdfUrl);
-                const pdf = await loadingTask.promise;
-
-                container.innerHTML = '';
-
-                // 渲染所有页面
-                for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-                    const page = await pdf.getPage(pageNum);
-
-                    // 计算合适的缩放比例
-                    const viewport = page.getViewport({ scale: 1.5 });
-
-                    // 创建canvas元素
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-
-                    // 渲染PDF页面到canvas
-                    const renderContext = {
-                        canvasContext: context,
-                        viewport: viewport
-                    };
-
-                    await page.render(renderContext).promise;
-                    container.appendChild(canvas);
+            // 支持回车搜索
+            document.getElementById('studentSearch').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    searchEssays();
                 }
+            });
+        });
 
-                console.log(`PDF加载成功: ${pdf.numPages} 页`);
+        // 加载用户信息
+        async function loadUserInfo() {
+            try {
+                const phone = localStorage.getItem('userPhone');
+                if (phone) {
+                    document.getElementById('userPhone').textContent = phone;
+                } else {
+                    // 未登录,跳转到登录页
+                    window.location.href = 'login.html';
+                }
             } catch (error) {
-                console.error('PDF加载失败:', error);
-                container.innerHTML = `
-                    <div class="pdf-loading" style="color: #f44336;">
-                        ❌ PDF加载失败<br>
-                        <small>${error.message}</small><br>
-                        <a href="${pdfUrl}" target="_blank" style="color: white; text-decoration: underline;">
-                            点击下载PDF文件
-                        </a>
-                    </div>
+                console.error('加载用户信息失败:', error);
+            }
+        }
+
+        // 加载批次列表
+        async function loadBatches() {
+            try {
+                const response = await fetch(`${API_BASE}/batches`);
+                const data = await response.json();
+
+                const select = document.getElementById('batchFilter');
+                data.batches.forEach(batch => {
+                    const option = document.createElement('option');
+                    option.value = batch.id;
+                    option.textContent = `${batch.essay_title.substring(0, 30)}${batch.essay_title.length > 30 ? '...' : ''}`;
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                console.error('加载批次列表失败:', error);
+            }
+        }
+
+        // 加载作文列表
+        async function loadEssays() {
+            try {
+                const batchId = document.getElementById('batchFilter').value;
+                const gradeId = document.getElementById('gradeFilter').value;
+                const studentName = document.getElementById('studentSearch').value.trim();
+
+                let url = `${API_BASE}/essays?page=${currentPage}&page_size=${pageSize}`;
+                if (batchId) url += `&batch_id=${batchId}`;
+                if (gradeId) url += `&grade_id=${gradeId}`;
+                if (studentName) url += `&student_name=${encodeURIComponent(studentName)}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                totalCount = data.total;
+                totalPages = data.total_pages;
+
+                renderEssayList(data.essays);
+                updatePagination();
+            } catch (error) {
+                console.error('加载作文列表失败:', error);
+                document.getElementById('essayList').innerHTML = `
+                    <div class="error">加载失败: ${error.message}</div>
                 `;
             }
         }
 
-        // 页面加载时获取所有作文数据
-        async function loadAllEssays() {
-            try {
-                const response = await fetch(`${API_BASE}/essays`);
-                const data = await response.json();
-                essaysData = data.essays;
+        // 渲染作文列表
+        function renderEssayList(essays) {
+            const container = document.getElementById('essayList');
 
-                // 填充下拉列表
-                const select = document.getElementById('essaySelect');
-                select.innerHTML = essaysData.map((essay, index) =>
-                    `<option value="${index}">${index + 1}. ${essay.student_name}</option>`
-                ).join('');
-
-                document.getElementById('totalCount').textContent = `共 ${data.total} 篇作文`;
-
-                // 默认加载第一篇
-                if (essaysData.length > 0) {
-                    select.value = 0;
-                    loadEssay();
-                }
-            } catch (error) {
-                showMessage('加载数据失败: ' + error.message, 'error');
-            }
-        }
-
-        // 加载选中的作文
-        function loadEssay() {
-            const select = document.getElementById('essaySelect');
-            currentIndex = parseInt(select.value);
-
-            if (currentIndex < 0 || currentIndex >= essaysData.length) {
+            if (essays.length === 0) {
+                container.innerHTML = '<div class="empty">暂无作文数据</div>';
                 return;
             }
 
-            const essay = essaysData[currentIndex];
+            let html = '';
+            essays.forEach(essay => {
+                const evalDate = essay.latest_evaluation_date
+                    ? new Date(essay.latest_evaluation_date).toLocaleDateString()
+                    : '未评价';
 
-            // 显示基本信息
-            document.getElementById('essayInfo').style.display = 'block';
-            document.getElementById('studentName').textContent = `学生: ${essay.student_name}`;
-            document.getElementById('directoryName').textContent = essay.directory_name;
+                html += `
+                    <div class="essay-card">
+                        <div class="essay-card-header">
+                            <div>
+                                <div class="essay-title">📄 ${essay.batch_title || '无标题'}</div>
+                            </div>
+                            <button class="enter-btn" onclick="enterScoring(${essay.id})">
+                                进入评分 →
+                            </button>
+                        </div>
+                        <div class="essay-meta">
+                            <div class="meta-item">
+                                <span class="meta-label">👤 学生:</span>
+                                <span class="meta-value">${essay.student_name || '未知'}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">📝 字数:</span>
+                                <span class="meta-value">${essay.word_count || 0} 字</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">📏 分制:</span>
+                                <span class="score-system-badge">${essay.score_system}分制</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">📊 原始分:</span>
+                                <span class="score-badge">${essay.original_score || '未评分'} / ${essay.score_system}</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">🔄 评价次数:</span>
+                                <span class="eval-count">${essay.evaluation_count || 0} 次</span>
+                            </div>
+                            <div class="meta-item">
+                                <span class="meta-label">🕐 最新评价:</span>
+                                <span class="meta-value">${evalDate}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
 
-            // 显示作文内容
-            document.getElementById('essayContent').textContent = essay.essay_content;
-
-            // 加载图片 - 直接使用OSS地址
-            const imageUrl = essay.essay_image_path;
-            document.getElementById('essayImage').src = imageUrl;
-
-            // 加载PDF - 使用PDF.js渲染
-            const pdfUrl = essay.analysis_report_path;
-            loadPdfWithPdfJs(pdfUrl);
-
-            // 渲染分数
-            renderScores(essay.score_data);
-
-            // 显示内容区域
-            document.getElementById('contentArea').style.display = 'grid';
-
-            // 更新分页控件
-            updatePagination();
+            container.innerHTML = html;
         }
 
-        // 更新分页控件状态
+        // 更新分页控件
         function updatePagination() {
-            if (essaysData.length === 0) {
-                document.getElementById('pagination').style.display = 'none';
-                return;
+            const pagination = document.getElementById('pagination');
+            const pageInfo = document.getElementById('pageInfo');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+
+            if (totalPages > 0) {
+                pagination.style.display = 'flex';
+                pageInfo.textContent = `第 ${currentPage} 页 / 共 ${totalPages} 页 (共 ${totalCount} 篇)`;
+                prevBtn.disabled = currentPage <= 1;
+                nextBtn.disabled = currentPage >= totalPages;
+            } else {
+                pagination.style.display = 'none';
             }
-
-            document.getElementById('pagination').style.display = 'flex';
-
-            // 更新页面信息
-            document.getElementById('pageInfo').textContent = `${currentIndex + 1} / ${essaysData.length}`;
-
-            // 更新按钮状态
-            document.getElementById('prevBtn').disabled = currentIndex <= 0;
-            document.getElementById('nextBtn').disabled = currentIndex >= essaysData.length - 1;
-
-            // 同步下拉框
-            document.getElementById('essaySelect').value = currentIndex;
         }
 
         // 上一页
-        function previousEssay() {
-            if (currentIndex > 0) {
-                currentIndex--;
-                document.getElementById('essaySelect').value = currentIndex;
-                loadEssay();
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadEssays();
             }
         }
 
         // 下一页
-        function nextEssay() {
-            if (currentIndex < essaysData.length - 1) {
-                currentIndex++;
-                document.getElementById('essaySelect').value = currentIndex;
-                loadEssay();
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                loadEssays();
             }
         }
 
-        // 跳转到指定页
-        function jumpToPage() {
-            const input = document.getElementById('jumpInput');
-            const pageNum = parseInt(input.value);
-
-            if (isNaN(pageNum)) {
-                showMessage('⚠️ 请输入有效的页码', 'error');
-                return;
-            }
-
-            if (pageNum < 1 || pageNum > essaysData.length) {
-                showMessage(`⚠️ 页码范围: 1-${essaysData.length}`, 'error');
-                return;
-            }
-
-            currentIndex = pageNum - 1;
-            document.getElementById('essaySelect').value = currentIndex;
-            loadEssay();
-            input.value = '';
+        // 搜索
+        function searchEssays() {
+            currentPage = 1;
+            loadEssays();
         }
 
-        // 支持回车键跳转
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('jumpInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    jumpToPage();
-                }
-            });
-        });
-
-        // 渲染分数表单
-        function renderScores(scoreData) {
-            const container = document.getElementById('scoresContainer');
-            let html = '';
-
-            // 确定分制：总分 <= 10 为10分制，否则为40分制
-            const scoreSystem = scoreData.total_score <= 10 ? 10 : 40;
-
-            // 分制选择器
-            html += `
-                <div class="score-system-selector">
-                    <label>📏 分制选择:</label>
-                    <select id="scoreSystemSelect" onchange="updateScoreSystem()">
-                        <option value="10" ${scoreSystem === 10 ? 'selected' : ''}>10分制</option>
-                        <option value="40" ${scoreSystem === 40 ? 'selected' : ''}>40分制</option>
-                    </select>
-                </div>
-            `;
-
-            // 警告框
-            html += `
-                <div class="warning-box" id="warningBox">
-                    <div style="display: flex; align-items: center;">
-                        <span class="warning-icon">⚠️</span>
-                        <span class="warning-text" id="warningText"></span>
-                    </div>
-                    <div class="warning-detail" id="warningDetail"></div>
-                </div>
-            `;
-
-            // 总分
-            const maxTotalScore = scoreSystem;
-            html += `
-                <div class="score-item total">
-                    <span class="score-label">🏆 总分</span>
-                    <div class="score-input-group">
-                        <input type="number" class="score-input" id="total_score"
-                               value="${scoreData.total_score}" step="0.5" min="0" max="${maxTotalScore}"
-                               oninput="checkScoreConsistency()">
-                        <span class="max-score">/ ${maxTotalScore}</span>
-                    </div>
-                </div>
-            `;
-
-            // 各维度分数
-            for (const [dimName, dimData] of Object.entries(scoreData.dimensions)) {
-                html += `
-                    <div class="score-item">
-                        <span class="score-label">${dimName}</span>
-                        <div class="score-input-group">
-                            <input type="number" class="score-input dimension-score"
-                                   data-dimension="${dimName}"
-                                   value="${dimData.score}" step="1" min="0" max="${dimData.max_score}"
-                                   oninput="checkScoreConsistency()">
-                            <span class="max-score">/ ${dimData.max_score}</span>
-                        </div>
-                    </div>
-                `;
-            }
-
-            container.innerHTML = html;
-
-            // 初始检查分数一致性
-            checkScoreConsistency();
+        // 重置筛选
+        function resetFilters() {
+            document.getElementById('batchFilter').value = '';
+            document.getElementById('gradeFilter').value = '';
+            document.getElementById('studentSearch').value = '';
+            currentPage = 1;
+            loadEssays();
         }
 
-        // 更新分制
-        function updateScoreSystem() {
-            const scoreSystem = parseInt(document.getElementById('scoreSystemSelect').value);
-            const totalScoreInput = document.getElementById('total_score');
-
-            // 更新总分的最大值
-            totalScoreInput.max = scoreSystem;
-
-            // 更新总分显示的最大值文本
-            const maxScoreSpan = totalScoreInput.closest('.score-input-group').querySelector('.max-score');
-            maxScoreSpan.textContent = `/ ${scoreSystem}`;
-
-            // 如果当前总分超过新分制，调整为新分制的最大值
-            if (parseFloat(totalScoreInput.value) > scoreSystem) {
-                totalScoreInput.value = scoreSystem;
-            }
-
-            // 重新检查分数一致性
-            checkScoreConsistency();
+        // 进入评分页面
+        function enterScoring(essayId) {
+            window.location.href = `ai-scoring.html?essay_id=${essayId}`;
         }
 
-        // 检查分数一致性
-        function checkScoreConsistency() {
-            const warningBox = document.getElementById('warningBox');
-            const warningText = document.getElementById('warningText');
-            const warningDetail = document.getElementById('warningDetail');
-
-            // 获取当前总分
-            const currentTotalScore = parseFloat(document.getElementById('total_score').value);
-
-            // 获取当前分制
-            const scoreSystem = parseInt(document.getElementById('scoreSystemSelect').value);
-
-            // 计算各维度得分之和
-            let dimensionsSum = 0;
-            document.querySelectorAll('.dimension-score').forEach(input => {
-                dimensionsSum += parseFloat(input.value) || 0;
-            });
-
-            // 计算期望总分: int((各维度得分之和 / 100) × 分制)
-            const expectedTotalScore = Math.floor((dimensionsSum / 100) * scoreSystem);
-
-            // 检查是否一致
-            if (Math.abs(currentTotalScore - expectedTotalScore) > 0.01) {
-                warningBox.classList.add('show');
-                warningText.textContent = '总分不一致警告！';
-                warningDetail.innerHTML = `
-                    <strong>当前总分:</strong> ${currentTotalScore} 分<br>
-                    <strong>期望总分:</strong> ${expectedTotalScore} 分<br>
-                    <strong>各维度得分之和:</strong> ${dimensionsSum} 分<br>
-                    <strong>计算公式:</strong> int((${dimensionsSum} / 100) × ${scoreSystem}) = ${expectedTotalScore}
-                `;
-            } else {
-                warningBox.classList.remove('show');
-            }
+        // 退出登录
+        function logout() {
+            localStorage.removeItem('userPhone');
+            window.location.href = 'login.html';
         }
-
-        // 保存分数
-        async function saveScores() {
-            if (currentIndex < 0) {
-                showMessage('请先选择一篇作文', 'error');
-                return;
-            }
-
-            const essay = essaysData[currentIndex];
-
-            // 收集分数数据
-            const totalScore = parseFloat(document.getElementById('total_score').value);
-            const dimensions = {};
-
-            document.querySelectorAll('.dimension-score').forEach(input => {
-                const dimName = input.dataset.dimension;
-                const score = parseFloat(input.value);
-                dimensions[dimName] = {
-                    score: score,
-                    max_score: essay.score_data.dimensions[dimName].max_score
-                };
-            });
-
-            const scoreData = {
-                total_score: totalScore,
-                dimensions: dimensions
-            };
-
-            try {
-                const response = await fetch(`${API_BASE}/essays/${currentIndex}/score`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        index: currentIndex,
-                        score_data: scoreData
-                    })
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    essaysData[currentIndex] = result.data;
-                    showMessage('✅ 分数保存成功!', 'success');
-                } else {
-                    const error = await response.json();
-                    showMessage('❌ 保存失败: ' + error.detail, 'error');
-                }
-            } catch (error) {
-                showMessage('❌ 保存失败: ' + error.message, 'error');
-            }
-        }
-
-        // 显示消息提示
-        function showMessage(text, type = 'success') {
-            const messageEl = document.getElementById('message');
-            messageEl.textContent = text;
-            messageEl.style.background = type === 'success' ? '#4caf50' : '#f44336';
-            messageEl.style.display = 'block';
-
-            setTimeout(() => {
-                messageEl.style.display = 'none';
-            }, 3000);
-        }
-
-        // 跳转到AI评分页面
-        function goToAIScoring() {
-            if (currentIndex < 0) {
-                showMessage('⚠️ 请先选择一篇作文', 'error');
-                return;
-            }
-            window.location.href = `ai-scoring.html?index=${currentIndex}`;
-        }
-
-        // 页面加载完成后初始化
-        window.addEventListener('DOMContentLoaded', function() {
-            loadAllEssays();
-
-            // 如果URL有index参数，自动加载该作文
-            const params = new URLSearchParams(window.location.search);
-            const urlIndex = params.get('index');
-            if (urlIndex !== null) {
-                setTimeout(() => {
-                    const index = parseInt(urlIndex);
-                    if (index >= 0 && index < essaysData.length) {
-                        document.getElementById('essaySelect').value = index;
-                        loadEssay();
-                    }
-                }, 500);
-            }
-        });
     </script>
 </body>
 </html>

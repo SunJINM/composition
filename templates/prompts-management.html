@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提示词管理 - 作文评分系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+            padding: 10px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .back-btn:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        .filters {
+            padding: 25px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-group label {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .filter-group select {
+            padding: 10px 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+            min-width: 150px;
+        }
+
+        .add-btn {
+            padding: 10px 30px;
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            margin-left: auto;
+        }
+
+        .add-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+
+        .prompts-list {
+            padding: 30px;
+            min-height: 500px;
+        }
+
+        .prompt-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s;
+            border-left: 5px solid #667eea;
+        }
+
+        .prompt-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .prompt-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .prompt-title {
+            font-size: 1.3em;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .default-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .prompt-meta {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .meta-item {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .meta-item strong {
+            color: #333;
+        }
+
+        .prompt-content {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        .prompt-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-edit {
+            background: #2196f3;
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #1976d2;
+        }
+
+        .btn-delete {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #d32f2f;
+        }
+
+        .btn-set-default {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-set-default:hover {
+            background: #f57c00;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+        .form-group select,
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .form-group textarea {
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+
+        .form-group input[type="checkbox"] {
+            width: auto;
+            margin-right: 10px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .btn-primary {
+            flex: 1;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            flex: 1;
+            padding: 12px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .loading, .empty {
+            text-align: center;
+            padding: 60px;
+            color: #999;
+            font-size: 1.2em;
+        }
+
+        .message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: #4caf50;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 2000;
+        }
+
+        .message.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .message.error {
+            background: #f44336;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 提示词管理</h1>
+            <button class="back-btn" onclick="goBack()">← 返回主页</button>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label>🎓 年级:</label>
+                <select id="gradeFilter" onchange="loadPrompts()">
+                    <option value="">全部年级</option>
+                    <option value="1">7年级</option>
+                    <option value="2">8年级</option>
+                    <option value="3">9年级</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>📝 文体:</label>
+                <select id="genreFilter" onchange="loadPrompts()">
+                    <option value="">全部文体</option>
+                    <option value="1">记叙文</option>
+                    <option value="2">议论文</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>📋 类型:</label>
+                <select id="typeFilter" onchange="loadPrompts()">
+                    <option value="">全部类型</option>
+                    <option value="analyze">评价提示词</option>
+                    <option value="score">评分提示词</option>
+                </select>
+            </div>
+            <button class="add-btn" onclick="showAddModal()">+ 新增提示词</button>
+        </div>
+
+        <div class="prompts-list" id="promptsList">
+            <div class="loading">正在加载提示词列表...</div>
+        </div>
+    </div>
+
+    <!-- 新增/编辑提示词模态框 -->
+    <div class="modal" id="promptModal">
+        <div class="modal-content">
+            <div class="modal-header" id="modalTitle">新增提示词</div>
+            <form id="promptForm" onsubmit="savePrompt(event)">
+                <input type="hidden" id="promptId">
+
+                <div class="form-group">
+                    <label>年级 *</label>
+                    <select id="gradeSelect" required>
+                        <option value="">请选择年级</option>
+                        <option value="1">7年级</option>
+                        <option value="2">8年级</option>
+                        <option value="3">9年级</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>文体 *</label>
+                    <select id="genreSelect" required>
+                        <option value="">请选择文体</option>
+                        <option value="1">记叙文</option>
+                        <option value="2">议论文</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>提示词类型 *</label>
+                    <select id="typeSelect" required>
+                        <option value="">请选择类型</option>
+                        <option value="analyze">评价提示词</option>
+                        <option value="score">评分提示词</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>版本名称 *</label>
+                    <input type="text" id="versionInput" placeholder="例如: v1.0" required>
+                </div>
+
+                <div class="form-group">
+                    <label>提示词内容 *</label>
+                    <textarea id="contentInput" placeholder="输入提示词内容..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="defaultCheck">
+                        设为默认提示词
+                    </label>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="submit" class="btn-primary">保存</button>
+                    <button type="button" class="btn-secondary" onclick="closeModal()">取消</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <script>
+        const API_BASE = '/api';
+        let prompts = [];
+
+        // 页面加载时初始化
+        window.addEventListener('DOMContentLoaded', function() {
+            loadPrompts();
+        });
+
+        // 加载提示词列表
+        async function loadPrompts() {
+            try {
+                const gradeId = document.getElementById('gradeFilter').value;
+                const genreId = document.getElementById('genreFilter').value;
+                const promptType = document.getElementById('typeFilter').value;
+
+                let url = `${API_BASE}/prompts?`;
+                if (gradeId) url += `grade_id=${gradeId}&`;
+                if (genreId) url += `genre_id=${genreId}&`;
+                if (promptType) url += `prompt_type=${promptType}&`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                prompts = data.prompts;
+                renderPromptsList(prompts);
+            } catch (error) {
+                console.error('加载提示词列表失败:', error);
+                document.getElementById('promptsList').innerHTML = `
+                    <div class="empty">加载失败: ${error.message}</div>
+                `;
+            }
+        }
+
+        // 渲染提示词列表
+        function renderPromptsList(prompts) {
+            const container = document.getElementById('promptsList');
+
+            if (prompts.length === 0) {
+                container.innerHTML = '<div class="empty">暂无提示词数据</div>';
+                return;
+            }
+
+            let html = '';
+            prompts.forEach(prompt => {
+                const typeText = prompt.prompt_type === 'analyze' ? '评价提示词' : '评分提示词';
+                const createDate = new Date(prompt.create_date).toLocaleDateString();
+
+                html += `
+                    <div class="prompt-card">
+                        <div class="prompt-header">
+                            <div>
+                                <span class="prompt-title">${prompt.version_name}</span>
+                                ${prompt.is_default ? '<span class="default-badge">默认</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="prompt-meta">
+                            <div class="meta-item">
+                                <strong>年级:</strong> ${prompt.grade_name || '未知'}
+                            </div>
+                            <div class="meta-item">
+                                <strong>文体:</strong> ${prompt.genre_name || '未知'}
+                            </div>
+                            <div class="meta-item">
+                                <strong>类型:</strong> ${typeText}
+                            </div>
+                            <div class="meta-item">
+                                <strong>创建时间:</strong> ${createDate}
+                            </div>
+                            ${prompt.created_by ? `
+                            <div class="meta-item">
+                                <strong>创建人:</strong> ${prompt.created_by}
+                            </div>
+                            ` : ''}
+                        </div>
+                        <div class="prompt-content">${prompt.prompt_content}</div>
+                        <div class="prompt-actions">
+                            <button class="btn btn-edit" onclick="editPrompt(${prompt.id})">编辑</button>
+                            ${!prompt.is_default ? `
+                                <button class="btn btn-set-default" onclick="setDefault(${prompt.id})">设为默认</button>
+                            ` : ''}
+                            <button class="btn btn-delete" onclick="deletePrompt(${prompt.id})">删除</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // 显示新增模态框
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = '新增提示词';
+            document.getElementById('promptForm').reset();
+            document.getElementById('promptId').value = '';
+            document.getElementById('promptModal').classList.add('show');
+        }
+
+        // 编辑提示词
+        function editPrompt(promptId) {
+            const prompt = prompts.find(p => p.id === promptId);
+            if (!prompt) return;
+
+            document.getElementById('modalTitle').textContent = '编辑提示词';
+            document.getElementById('promptId').value = prompt.id;
+            document.getElementById('gradeSelect').value = prompt.grade_id;
+            document.getElementById('genreSelect').value = prompt.genre_id;
+            document.getElementById('typeSelect').value = prompt.prompt_type;
+            document.getElementById('versionInput').value = prompt.version_name;
+            document.getElementById('contentInput').value = prompt.prompt_content;
+            document.getElementById('defaultCheck').checked = prompt.is_default;
+
+            // 编辑时禁用年级、文体、类型选择
+            document.getElementById('gradeSelect').disabled = true;
+            document.getElementById('genreSelect').disabled = true;
+            document.getElementById('typeSelect').disabled = true;
+
+            document.getElementById('promptModal').classList.add('show');
+        }
+
+        // 关闭模态框
+        function closeModal() {
+            document.getElementById('promptModal').classList.remove('show');
+            // 恢复选择框
+            document.getElementById('gradeSelect').disabled = false;
+            document.getElementById('genreSelect').disabled = false;
+            document.getElementById('typeSelect').disabled = false;
+        }
+
+        // 保存提示词
+        async function savePrompt(event) {
+            event.preventDefault();
+
+            const promptId = document.getElementById('promptId').value;
+            const userPhone = localStorage.getItem('userPhone') || 'system';
+
+            try {
+                let url, method, body;
+
+                if (promptId) {
+                    // 更新
+                    url = `${API_BASE}/prompts/${promptId}`;
+                    method = 'PUT';
+                    body = {
+                        version_name: document.getElementById('versionInput').value,
+                        prompt_content: document.getElementById('contentInput').value,
+                        is_default: document.getElementById('defaultCheck').checked
+                    };
+                } else {
+                    // 新增
+                    url = `${API_BASE}/prompts`;
+                    method = 'POST';
+                    body = {
+                        grade_id: parseInt(document.getElementById('gradeSelect').value),
+                        genre_id: parseInt(document.getElementById('genreSelect').value),
+                        prompt_type: document.getElementById('typeSelect').value,
+                        version_name: document.getElementById('versionInput').value,
+                        prompt_content: document.getElementById('contentInput').value,
+                        is_default: document.getElementById('defaultCheck').checked,
+                        created_by: userPhone
+                    };
+                }
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(body)
+                });
+
+                if (response.ok) {
+                    showMessage(promptId ? '更新成功' : '创建成功', 'success');
+                    closeModal();
+                    loadPrompts();
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.detail || '操作失败');
+                }
+            } catch (error) {
+                console.error('保存提示词失败:', error);
+                showMessage(error.message, 'error');
+            }
+        }
+
+        // 设为默认
+        async function setDefault(promptId) {
+            if (!confirm('确定要设为默认提示词吗?')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/prompts/${promptId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ is_default: true })
+                });
+
+                if (response.ok) {
+                    showMessage('设置成功', 'success');
+                    loadPrompts();
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.detail || '设置失败');
+                }
+            } catch (error) {
+                console.error('设置默认失败:', error);
+                showMessage(error.message, 'error');
+            }
+        }
+
+        // 删除提示词
+        async function deletePrompt(promptId) {
+            if (!confirm('确定要删除这个提示词吗?此操作不可恢复!')) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/prompts/${promptId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showMessage('删除成功', 'success');
+                    loadPrompts();
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.detail || '删除失败');
+                }
+            } catch (error) {
+                console.error('删除提示词失败:', error);
+                showMessage(error.message, 'error');
+            }
+        }
+
+        // 显示消息
+        function showMessage(text, type = 'success') {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = 'message show' + (type === 'error' ? ' error' : '');
+
+            setTimeout(() => {
+                messageEl.classList.remove('show');
+            }, 3000);
+        }
+
+        // 返回主页
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

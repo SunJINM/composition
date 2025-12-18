@@ -9,7 +9,9 @@ from app.schemas.evaluation import (
     GenreDetectionRequest,
     GenreDetectionResponse,
     EvaluationResponse,
-    EvaluationListResponse
+    EvaluationListResponse,
+    AIScoreRequest,
+    AIScoreWithAnalysisRequest
 )
 from app.schemas.score import ScoreCreateRequest, ScoreResponse, ScoreListResponse
 from app.schemas.prompt import PromptCreate, PromptUpdate, PromptResponse, PromptListResponse
@@ -53,4 +55,6 @@ __all__ = [
     "FeedbackListResponse",
     "Response",
     "ErrorResponse",
+    "AIScoreRequest",
+    "AIScoreWithAnalysisRequest"
 ]

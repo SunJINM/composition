@@ -47,6 +47,26 @@ class EvaluationListItem(BaseModel):
     class Config:
         from_attributes = True
 
+class AIScoreRequest(BaseModel):
+    essay_content: str
+    essay_title: Optional[str] = ""
+    essay_requirement: Optional[str] = ""
+    prompt: str
+    essay_id: int = Field(..., description="作文ID")
+    analyze_prompt_id: int = Field(..., description="评价提示词ID")
+    user_phone: str = Field(..., description="用户手机号")
+
+class AIScoreWithAnalysisRequest(BaseModel):
+    essay_content: str
+    essay_title: Optional[str] = ""
+    essay_requirement: Optional[str] = ""
+    prompt: str
+    analysis: Optional[Dict] = None  # 分析结果(可选)
+    original_score_data: Optional[Dict] = None  # 原始评分数据(用于判断分制)
+    evaluation_id: int = Field(..., description="评价ID")
+    score_prompt_id: int = Field(..., description="评分提示词ID")
+    user_phone: str = Field(..., description="用户手机号")
+
 
 class EvaluationListResponse(BaseModel):
     """评价列表响应"""

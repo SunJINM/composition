@@ -580,7 +580,7 @@
             <div class="left-column">
                 <!-- 分析提示词管理 -->
                 <div class="section">
-                    <h3>🔍 分析提示词</h3>
+                    <h3>🔍 作文评价提示词</h3>
                     <div class="version-control">
                         <label>版本选择:</label>
                         <select id="analyzePromptSelect" onchange="onAnalyzeVersionChange()">
@@ -590,7 +590,7 @@
                         <button onclick="setAnalyzeDefault()">⭐ 设为默认</button>
                     </div>
                     <div class="form-group">
-                        <textarea id="analyzePromptContent" placeholder="分析提示词内容"></textarea>
+                        <textarea id="analyzePromptContent" placeholder="作文评价提示词内容"></textarea>
                     </div>
                     <button class="score-btn" id="analyzeBtn" onclick="performAnalysis()">
                         🔍 第一步:分析作文
@@ -610,7 +610,7 @@
             <div class="right-column">
                 <!-- 评分提示词管理 -->
                 <div class="section">
-                    <h3>🎯 评分提示词</h3>
+                    <h3>🎯 作文评分提示词</h3>
                     <div class="version-control">
                         <label>版本选择:</label>
                         <select id="scorePromptSelect" onchange="onScoreVersionChange()">
@@ -620,7 +620,7 @@
                         <button onclick="setScoreDefault()">⭐ 设为默认</button>
                     </div>
                     <div class="form-group">
-                        <textarea id="scorePromptContent" placeholder="评分提示词内容"></textarea>
+                        <textarea id="scorePromptContent" placeholder="作文评分提示词内容"></textarea>
                     </div>
                     <button class="score-btn" id="scoreBtn" onclick="performScoring()" disabled>
                         🎯 第二步:AI评分
@@ -680,8 +680,8 @@
         let currentEssay = null;      // 当前作文详情
         let currentEssayId = null;    // 当前作文ID
         let currentIndex = -1;        // 当前作文在列表中的索引（用于分页）
-        let analyzePromptsData = [];  // 分析提示词
-        let scorePromptsData = [];     // 评分提示词
+        let analyzePromptsData = [];  // 作文评价提示词列表
+        let scorePromptsData = [];    // 作文评分提示词列表
         let currentAnalysis = null;   // 存储当前作文的分析结果
 
         // 从URL获取作文ID
@@ -695,6 +695,19 @@
             if (!currentEssayId) return;
             const newURL = `${window.location.pathname}?essay_id=${currentEssayId}`;
             window.history.pushState({}, '', newURL);
+        }
+
+
+        // 读取当前登录用户的手机号
+        function getCurrentUserPhone() {
+            const phone = localStorage.getItem('userPhone');
+            if (!phone) {
+                showMessage('⚠️ 未检测到登录状态,请重新登录', 'error');
+                // 可选：跳回登录页
+                // setTimeout(() => window.location.href = 'login.html', 2000);
+                return null;
+            }
+            return phone;
         }
 
         // 加载所有作文列表（用于分页）
@@ -763,7 +776,7 @@
             document.getElementById('essayContent').textContent = essay.essay_content || '无作文内容';
 
             // 统计并显示字数（优先用接口返回的word_count，没有则计算）
-            const wordCount = essay.word_count || essay.essay_content.replace(/\s/g, '').length;
+            const wordCount = essay.word_count || (essay.essay_content ? essay.essay_content.replace(/\s/g, '').length : 0);
             document.getElementById('wordCount').textContent = `(共 ${wordCount} 字)`;
 
             // 自动填充作文题目和要求（从批次信息）
@@ -808,15 +821,15 @@
 
             // 查找包含对应分制的提示词版本
             const appropriatePrompts = scorePromptsData.filter(p =>
-                p.version.includes(scale + '分制')
+                p.version_name.includes(scale + '分制')
             );
 
             if (appropriatePrompts.length > 0) {
                 // 优先选择默认版本,否则选择第一个
                 const selectedPrompt = appropriatePrompts.find(p => p.is_default) || appropriatePrompts[0];
-                document.getElementById('scorePromptSelect').value = selectedPrompt.version;
+                document.getElementById('scorePromptSelect').value = selectedPrompt.id;
                 onScoreVersionChange();
-                console.log(`自动选择 ${scale}分制 提示词: ${selectedPrompt.version}`);
+                console.log(`自动选择 ${scale}分制 提示词: ${selectedPrompt.version_name}`);
             }
         }
 
@@ -929,79 +942,87 @@
             });
         });
 
-        // 加载提示词列表
+        // 加载提示词列表（适配新接口）
         async function loadPrompts() {
             try {
-                // 加载分析提示词
-                const analyzeResponse = await fetch(`${API_BASE}/prompts?type=analyze`);
+                // 加载作文评价提示词 (analyze类型, grade_id=1, genre_id=1)
+                const analyzeResponse = await fetch(`${API_BASE}/prompts?grade_id=1&genre_id=1&prompt_type=analyze`);
                 const analyzeData = await analyzeResponse.json();
                 analyzePromptsData = analyzeData.prompts || [];
 
-                // 加载评分提示词
-                const scoreResponse = await fetch(`${API_BASE}/prompts?type=score`);
+                // 加载作文评分提示词 (score类型, grade_id=1, genre_id=1)
+                const scoreResponse = await fetch(`${API_BASE}/prompts?grade_id=1&genre_id=1&prompt_type=score`);
                 const scoreData = await scoreResponse.json();
                 scorePromptsData = scoreData.prompts || [];
 
-                // 填充分析提示词选择器
+                console.log('加载评价提示词:', analyzePromptsData.length, '条');
+                console.log('加载评分提示词:', scorePromptsData.length, '条');
+
+                // 填充作文评价提示词选择器
                 const analyzeSelect = document.getElementById('analyzePromptSelect');
                 analyzeSelect.innerHTML = analyzePromptsData.map(p => {
-                    const label = p.version + (p.is_default ? ' (默认)' : '');
-                    return `<option value="${p.version}">${label}</option>`;
+                    const label = p.version_name + (p.is_default ? ' (默认)' : '');
+                    return `<option value="${p.id}">${label}</option>`;
                 }).join('');
 
-                // 选择默认分析版本
+                // 选择默认评价提示词
                 if (analyzePromptsData.length > 0) {
                     const defaultAnalyze = analyzePromptsData.find(p => p.is_default) || analyzePromptsData[0];
-                    analyzeSelect.value = defaultAnalyze.version;
+                    analyzeSelect.value = defaultAnalyze.id;
                     onAnalyzeVersionChange();
                 }
 
-                // 填充评分提示词选择器
+                // 填充作文评分提示词选择器
                 const scoreSelect = document.getElementById('scorePromptSelect');
                 scoreSelect.innerHTML = scorePromptsData.map(p => {
-                    const label = p.version + (p.is_default ? ' (默认)' : '');
-                    return `<option value="${p.version}">${label}</option>`;
+                    const label = p.version_name + (p.is_default ? ' (默认)' : '');
+                    return `<option value="${p.id}">${label}</option>`;
                 }).join('');
 
-                // 选择默认评分版本
+                // 选择默认评分提示词
                 if (scorePromptsData.length > 0) {
                     const defaultScore = scorePromptsData.find(p => p.is_default) || scorePromptsData[0];
-                    scoreSelect.value = defaultScore.version;
+                    scoreSelect.value = defaultScore.id;
                     onScoreVersionChange();
                 }
 
             } catch (error) {
                 console.error('加载提示词失败:', error);
+                showMessage('❌ 加载提示词失败: ' + error.message, 'error');
             }
         }
 
-        // 分析提示词版本变更
+        // 作文评价提示词版本变更
         function onAnalyzeVersionChange() {
-            const version = document.getElementById('analyzePromptSelect').value;
-            const prompt = analyzePromptsData.find(p => p.version === version);
+            const promptId = parseInt(document.getElementById('analyzePromptSelect').value);
+            const prompt = analyzePromptsData.find(p => p.id === promptId);
             if (prompt) {
-                document.getElementById('analyzePromptContent').value = prompt.prompt;
+                document.getElementById('analyzePromptContent').value = prompt.prompt_content || '';
+            } else {
+                document.getElementById('analyzePromptContent').value = '';
             }
         }
 
-        // 评分提示词版本变更
+        // 作文评分提示词版本变更
         function onScoreVersionChange() {
-            const version = document.getElementById('scorePromptSelect').value;
-            const prompt = scorePromptsData.find(p => p.version === version);
+            const promptId = parseInt(document.getElementById('scorePromptSelect').value);
+            const prompt = scorePromptsData.find(p => p.id === promptId);
             if (prompt) {
-                document.getElementById('scorePromptContent').value = prompt.prompt;
+                document.getElementById('scorePromptContent').value = prompt.prompt_content || '';
+            } else {
+                document.getElementById('scorePromptContent').value = '';
             }
         }
 
-        // 保存分析提示词版本
+        // 保存作文评价提示词版本（调用创建接口）
         async function saveAnalyzeVersion() {
             const content = document.getElementById('analyzePromptContent').value.trim();
             if (!content) {
-                showMessage('⚠️ 请输入分析提示词内容', 'error');
+                showMessage('⚠️ 请输入作文评价提示词内容', 'error');
                 return;
             }
 
-            const versionName = prompt('请输入分析提示词版本名称:');
+            const versionName = prompt('请输入作文评价提示词版本名称:');
             if (!versionName) return;
 
             try {
@@ -1009,20 +1030,26 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        prompt: content,
+                        grade_id: 1,          // 默认填1
+                        genre_id: 1,          // 默认填1
+                        prompt_type: 'analyze',// 作文评价类型
                         version_name: versionName,
-                        type: 'analyze'
+                        prompt_content: content,
+                        is_default: false,     // 默认不设为默认
+                        created_by: 'admin'    // 默认创建者
                     })
                 });
 
                 if (response.ok) {
                     const result = await response.json();
-                    showMessage('✅ 分析提示词保存成功!', 'success');
+                    showMessage('✅ 作文评价提示词保存成功!', 'success');
+                    // 重新加载提示词列表
                     await loadPrompts();
-                    document.getElementById('analyzePromptSelect').value = result.prompt.version;
+                    // 选中新创建的提示词
+                    document.getElementById('analyzePromptSelect').value = result.id;
                     onAnalyzeVersionChange();
                 } else {
-                    const error = await response.json();
+                    const error = await response.json().catch(() => ({ detail: '未知错误' }));
                     showMessage('❌ 保存失败: ' + error.detail, 'error');
                 }
             } catch (error) {
@@ -1030,24 +1057,29 @@
             }
         }
 
-        // 设置分析提示词为默认
+        // 设置作文评价提示词为默认（调用更新接口）
         async function setAnalyzeDefault() {
-            const version = document.getElementById('analyzePromptSelect').value;
-            if (!version) {
+            const promptId = parseInt(document.getElementById('analyzePromptSelect').value);
+            if (isNaN(promptId)) {
                 showMessage('⚠️ 请先选择一个提示词版本', 'error');
                 return;
             }
 
             try {
-                const response = await fetch(`${API_BASE}/prompts/${encodeURIComponent(version)}/default?type=analyze`, {
-                    method: 'PUT'
+                const response = await fetch(`${API_BASE}/prompts/${promptId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        is_default: true  // 设置为默认
+                    })
                 });
 
                 if (response.ok) {
-                    showMessage('✅ 已设置为默认分析提示词', 'success');
+                    showMessage('✅ 已设置为默认作文评价提示词', 'success');
+                    // 重新加载提示词列表
                     await loadPrompts();
                 } else {
-                    const error = await response.json();
+                    const error = await response.json().catch(() => ({ detail: '未知错误' }));
                     showMessage('❌ 设置失败: ' + error.detail, 'error');
                 }
             } catch (error) {
@@ -1055,15 +1087,15 @@
             }
         }
 
-        // 保存评分提示词版本
+        // 保存作文评分提示词版本（调用创建接口）
         async function saveScoreVersion() {
             const content = document.getElementById('scorePromptContent').value.trim();
             if (!content) {
-                showMessage('⚠️ 请输入评分提示词内容', 'error');
+                showMessage('⚠️ 请输入作文评分提示词内容', 'error');
                 return;
             }
 
-            const versionName = prompt('请输入评分提示词版本名称:');
+            const versionName = prompt('请输入作文评分提示词版本名称:');
             if (!versionName) return;
 
             try {
@@ -1071,20 +1103,26 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        prompt: content,
+                        grade_id: 1,         // 默认填1
+                        genre_id: 1,         // 默认填1
+                        prompt_type: 'score', // 作文评分类型
                         version_name: versionName,
-                        type: 'score'
+                        prompt_content: content,
+                        is_default: false,    // 默认不设为默认
+                        created_by: 'admin'   // 默认创建者
                     })
                 });
 
                 if (response.ok) {
                     const result = await response.json();
-                    showMessage('✅ 评分提示词保存成功!', 'success');
+                    showMessage('✅ 作文评分提示词保存成功!', 'success');
+                    // 重新加载提示词列表
                     await loadPrompts();
-                    document.getElementById('scorePromptSelect').value = result.prompt.version;
+                    // 选中新创建的提示词
+                    document.getElementById('scorePromptSelect').value = result.id;
                     onScoreVersionChange();
                 } else {
-                    const error = await response.json();
+                    const error = await response.json().catch(() => ({ detail: '未知错误' }));
                     showMessage('❌ 保存失败: ' + error.detail, 'error');
                 }
             } catch (error) {
@@ -1092,24 +1130,29 @@
             }
         }
 
-        // 设置评分提示词为默认
+        // 设置作文评分提示词为默认（调用更新接口）
         async function setScoreDefault() {
-            const version = document.getElementById('scorePromptSelect').value;
-            if (!version) {
+            const promptId = parseInt(document.getElementById('scorePromptSelect').value);
+            if (isNaN(promptId)) {
                 showMessage('⚠️ 请先选择一个提示词版本', 'error');
                 return;
             }
 
             try {
-                const response = await fetch(`${API_BASE}/prompts/${encodeURIComponent(version)}/default?type=score`, {
-                    method: 'PUT'
+                const response = await fetch(`${API_BASE}/prompts/${promptId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        is_default: true  // 设置为默认
+                    })
                 });
 
                 if (response.ok) {
-                    showMessage('✅ 已设置为默认评分提示词', 'success');
+                    showMessage('✅ 已设置为默认作文评分提示词', 'success');
+                    // 重新加载提示词列表
                     await loadPrompts();
                 } else {
-                    const error = await response.json();
+                    const error = await response.json().catch(() => ({ detail: '未知错误' }));
                     showMessage('❌ 设置失败: ' + error.detail, 'error');
                 }
             } catch (error) {
@@ -1130,7 +1173,7 @@
             // 使用分析提示词输入框的内容
             const promptContent = document.getElementById('analyzePromptContent').value.trim();
             if (!promptContent) {
-                showMessage('⚠️ 请输入分析提示词', 'error');
+                showMessage('⚠️ 请输入作文评价提示词', 'error');
                 return;
             }
 
@@ -1140,7 +1183,7 @@
             btn.innerHTML = '<span class="loading-spinner"></span> AI分析中...';
 
             try {
-                const response = await fetch(`${API_BASE}/ai-analyze`, {
+                const response = await fetch(`${API_BASE}/evaluations/ai-analyze`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1386,7 +1429,7 @@
             const promptContent = document.getElementById('scorePromptContent').value.trim();
 
             if (!promptContent) {
-                showMessage('⚠️ 请输入评分提示词', 'error');
+                showMessage('⚠️ 请输入作文评分提示词', 'error');
                 return;
             }
 
@@ -1396,7 +1439,7 @@
             btn.innerHTML = '<span class="loading-spinner"></span> AI评分中...';
 
             try {
-                const response = await fetch(`${API_BASE}/ai-score`, {
+                const response = await fetch(`${API_BASE}/evaluations/ai-score`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1478,7 +1521,10 @@
 
         // 页面加载完成后初始化
         window.addEventListener('DOMContentLoaded', async function() {
-            // 1. 加载提示词
+            // 验证登录状态
+            const userPhone = getCurrentUserPhone();
+            if (!userPhone) return;
+            // 1. 加载提示词（优先加载）
             await loadPrompts();
             
             // 2. 加载所有作文列表（用于分页）

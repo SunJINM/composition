@@ -953,10 +953,10 @@
             scoreRecords = selectedEval.scores || [];
             renderScoreRecords();
             
-            // 如果有评分记录，默认选中第一个
+            // 如果有评分记录，默认
             if (scoreRecords.length > 0) {
-                const firstScore = scoreRecords[0];
-                document.getElementById('scoreRecordSelect').value = firstScore.score_id;
+                const defaultScore = scoreRecords.find(item => item.is_default) || scoreRecords[0];
+                document.getElementById('scoreRecordSelect').value = defaultScore.score_id;
                 onScoreRecordChange();
             }
         }

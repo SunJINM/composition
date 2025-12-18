@@ -533,6 +533,12 @@ async def ai_score_essay(
             "dimensions": dimensions
         }
 
+        db.query(Score).filter_by(
+            evaluation_id=request.evaluation_id,
+            is_default=1
+        ).update({"is_default": 0})
+
+
         # 6. 保存评分结果
         score = Score(
             evaluation_id=request.evaluation_id,

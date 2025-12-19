@@ -1683,10 +1683,10 @@
         function displayAnalysis(analysis) {
             const section = document.getElementById('analysisSection');
             const container = document.getElementById('analysisContent');
-        
+
             let html = '';
-        
-            // 综合评价（替换为overall_evaluation）
+
+            // 1. 综合评价（overall_evaluation）
             if (analysis.overall_evaluation) {
                 const overall = analysis.overall_evaluation;
                 html += `
@@ -1698,18 +1698,25 @@
                         ${overall.summary ? `<p style="line-height: 1.8; margin-bottom: 12px; padding: 12px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #667eea;">${overall.summary}</p>` : ''}
                         <p style="margin-bottom: 8px;"><strong>主要优点:</strong></p>
                         <ul class="analysis-list">
-                            ${(overall.main_strengths || []).map(item => `<li class="highlight-item">${item}</li>`).join('')}
+                            ${(overall.main_strengths || []).map(item => `
+                                <li class="highlight-item">
+                                    <strong>${item.title}:</strong> ${item.description}
+                                </li>
+                            `).join('')}
                         </ul>
                         <p style="margin-bottom: 8px; margin-top: 12px;"><strong>主要问题:</strong></p>
                         <ul class="analysis-list">
-                            ${(overall.main_issues || []).map(item => `<li class="error-item">${item}</li>`).join('')}
+                            ${(overall.main_issues || []).map(item => `
+                                <li class="error-item">
+                                    <strong>${item.title}:</strong> ${item.description}
+                                </li>
+                            `).join('')}
                         </ul>
-                        <p style="margin-top: 12px;"><strong>总体建议:</strong> ${overall.general_advice || ''}</p>
                     </div>
                 `;
             }
-        
-            // 作文要求评价（替换为requirement_evaluation）
+
+            // 2. 作文要求评价（requirement_evaluation）
             if (analysis.requirement_evaluation && analysis.requirement_evaluation.length > 0) {
                 html += `
                     <div class="analysis-item">
@@ -1731,151 +1738,88 @@
                     </div>
                 `;
             }
-        
-            // 旁批点评（替换为margin_comments）
-            if (analysis.margin_comments) {
-                const pangpi = analysis.margin_comments;
-                let pangpiHtml = '';
-            
-                // 亮点句子（highlight_sentences）
-                if (pangpi.highlight_sentences && pangpi.highlight_sentences.length > 0) {
-                    pangpiHtml += `
-                        <div style="margin-bottom: 15px;">
-                            <div style="font-weight: bold; color: #ffd700; margin-bottom: 8px;">🌟 亮点句子 (${pangpi.highlight_sentences.length}处)</div>
-                            <ul class="analysis-list">
-                                ${pangpi.highlight_sentences.map(item =>
-                                    `<li class="highlight-item">
-                                        <span style="color: #666; font-style: italic;">"${item.content}"</span><br>
-                                        <span style="color: #4caf50;">${item.comment}</span>
-                                    </li>`
-                                ).join('')}
-                            </ul>
+
+            // 6. 好词好句（highlights）
+            if (analysis.highlights && analysis.highlights.length > 0) {
+                html += `
+                    <div class="analysis-item">
+                        <div class="analysis-title">
+                            ✨ 好词好句
+                            <span class="analysis-badge">${analysis.highlights.length} 处</span>
                         </div>
-                    `;
-                }
-            
-                // 搭配提升（collocation_improvements）
-                if (pangpi.collocation_improvements && pangpi.collocation_improvements.length > 0) {
-                    pangpiHtml += `
-                        <div style="margin-bottom: 15px;">
-                            <div style="font-weight: bold; color: #ff9800; margin-bottom: 8px;">🔧 搭配提升 (${pangpi.collocation_improvements.length}处)</div>
-                            <ul class="analysis-list">
-                                ${pangpi.collocation_improvements.map(item =>
-                                    `<li class="suggestion-item">
-                                        "${item.original}" → "${item.suggestion}"<br>
-                                        <span style="color: #666; font-size: 13px;">${item.reason}</span>
-                                    </li>`
-                                ).join('')}
-                            </ul>
-                        </div>
-                    `;
-                }
-            
-                // 字词纠错（word_corrections）
-                if (pangpi.word_corrections && pangpi.word_corrections.length > 0) {
-                    pangpiHtml += `
-                        <div style="margin-bottom: 15px;">
-                            <div style="font-weight: bold; color: #2196f3; margin-bottom: 8px;">✏️ 字词纠错 (${pangpi.word_corrections.length}处)</div>
-                            <ul class="analysis-list">
-                                ${pangpi.word_corrections.map(item =>
-                                    `<li class="error-item">
-                                        ${item.error}: 应改为 "${item.correction}"
-                                    </li>`
-                                ).join('')}
-                            </ul>
-                        </div>
-                    `;
-                }
-            
-                if (pangpiHtml) {
-                    html += `
-                        <div class="analysis-item">
-                            <div class="analysis-title">
-                                📌 旁批点评
-                            </div>
-                            ${pangpiHtml}
-                        </div>
-                    `;
-                }
+                        <ul class="analysis-list">
+                            ${analysis.highlights.map(item => `
+                                <li class="highlight-item">
+                                    <span style="color: #666; font-style: italic;">"${item.original_text}"</span><br>
+                                    <span style="color: #4caf50;">点评: ${item.reason}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
             }
-        
-            // 错别字统计（typos + typo_count）
-            if (analysis.typo_count !== undefined) {
+
+            // 3. 错别字统计（typos）
+            if (analysis.typos && analysis.typos.length > 0) {
                 html += `
                     <div class="analysis-item">
                         <div class="analysis-title">
                             ❌ 错别字统计
-                            <span class="analysis-badge">${analysis.typo_count} 个</span>
+                            <span class="analysis-badge">${analysis.typos.length} 个</span>
                         </div>
                         <ul class="analysis-list">
-                            ${(analysis.typos || []).map(item =>
-                                `<li class="error-item">${item.location}: "${item.error}" → "${item.correction}"</li>`
-                            ).join('')}
+                            ${analysis.typos.map(item => `
+                                <li class="error-item">
+                                    "${item.original_text}" → "${item.suggestion}"<br>
+                                    <span style="color: #666; font-size: 13px;">原因: ${item.reason}</span>
+                                </li>
+                            `).join('')}
                         </ul>
                     </div>
                 `;
             }
-        
-            // 语病标注（grammar_errors + grammar_error_count）
-            if (analysis.grammar_error_count !== undefined) {
+
+            // 5. 病句统计（grammar_errors）
+            if (analysis.grammar_errors && analysis.grammar_errors.length > 0) {
                 html += `
                     <div class="analysis-item">
                         <div class="analysis-title">
-                            ⚠️ 语病标注
-                            <span class="analysis-badge">${analysis.grammar_error_count} 处</span>
+                            ⚠️ 病句统计
+                            <span class="analysis-badge">${analysis.grammar_errors.length} 处</span>
                         </div>
                         <ul class="analysis-list">
-                            ${(analysis.grammar_errors || []).map(item =>
-                                `<li class="error-item">
-                                    <strong>${item.location}:</strong> ${item.description}<br>
-                                    <span style="color: #999;">原句: ${item.original_sentence}</span><br>
-                                    <span style="color: #4caf50;">建议: ${item.suggestion}</span>
-                                </li>`
-                            ).join('')}
+                            ${analysis.grammar_errors.map(item => `
+                                <li class="error-item">
+                                    <span style="color: #999;">原句: "${item.original_text}"</span><br>
+                                    <span style="color: #4caf50;">建议: "${item.suggestion}"</span><br>
+                                    <span style="color: #666; font-size: 13px;">原因: ${item.reason}</span>
+                                </li>
+                            `).join('')}
                         </ul>
                     </div>
                 `;
             }
-        
-            // 优点亮点（strengths）
-            if (analysis.strengths && analysis.strengths.length > 0) {
+
+            // 4. 标点错误统计（punctuation_errors）
+            if (analysis.punctuation_errors && analysis.punctuation_errors.length > 0) {
                 html += `
                     <div class="analysis-item">
                         <div class="analysis-title">
-                            ✨ 优点亮点
-                            <span class="analysis-badge">${analysis.strengths.length} 处</span>
+                            📝 标点错误统计
+                            <span class="analysis-badge">${analysis.punctuation_errors.length} 处</span>
                         </div>
                         <ul class="analysis-list">
-                            ${analysis.strengths.map(item =>
-                                `<li class="highlight-item">
-                                    <strong>${item.location}:</strong> ${item.comment}<br>
-                                    <span style="color: #666; font-style: italic;">"${item.content}"</span>
-                                </li>`
-                            ).join('')}
+                            ${analysis.punctuation_errors.map(item => `
+                                <li class="error-item">
+                                    "${item.original_text}" → "${item.suggestion}"<br>
+                                    <span style="color: #666; font-size: 13px;">原因: ${item.reason}</span>
+                                </li>
+                            `).join('')}
                         </ul>
                     </div>
                 `;
             }
-        
-            // 改进建议（improvement_suggestions）
-            if (analysis.improvement_suggestions && analysis.improvement_suggestions.length > 0) {
-                html += `
-                    <div class="analysis-item">
-                        <div class="analysis-title">
-                            💡 改进建议
-                            <span class="analysis-badge">${analysis.improvement_suggestions.length} 条</span>
-                        </div>
-                        <ul class="analysis-list">
-                            ${analysis.improvement_suggestions.map(item =>
-                                `<li class="suggestion-item">
-                                    <strong>${item.aspect}:</strong> ${item.suggestion}
-                                </li>`
-                            ).join('')}
-                        </ul>
-                    </div>
-                `;
-            }
-        
+
             container.innerHTML = html || '<p style="color: #999; text-align: center;">暂无分析结果</p>';
             section.style.display = 'block';
         }

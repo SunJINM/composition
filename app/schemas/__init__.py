@@ -11,7 +11,9 @@ from app.schemas.evaluation import (
     EvaluationResponse,
     EvaluationListResponse,
     AIScoreRequest,
-    AIScoreWithAnalysisRequest
+    AIScoreWithAnalysisRequest,
+    CompleteAnalysisRequest,
+    CompleteAnalysisResponse
 )
 from app.schemas.score import ScoreCreateRequest, ScoreResponse, ScoreListResponse
 from app.schemas.prompt import PromptCreate, PromptUpdate, PromptResponse, PromptListResponse
@@ -56,5 +58,7 @@ __all__ = [
     "Response",
     "ErrorResponse",
     "AIScoreRequest",
-    "AIScoreWithAnalysisRequest"
+    "AIScoreWithAnalysisRequest",
+    "CompleteAnalysisRequest",
+    "CompleteAnalysisResponse"
 ]

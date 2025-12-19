@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import json
 from app.database import get_db
-from app.models import Essay, Evaluation, Score, Prompt, Genre, Grade
+from app.models import Essay, Evaluation, Score, Prompt, Genre, Grade, Batch
 from app.schemas import (
     EvaluationAnalyzeRequest,
     EvaluationResponse,
@@ -15,7 +15,9 @@ from app.schemas import (
     ScoreCreateRequest,
     ScoreResponse,
     AIScoreRequest,
-    AIScoreWithAnalysisRequest
+    AIScoreWithAnalysisRequest,
+    CompleteAnalysisRequest,
+    CompleteAnalysisResponse
 )
 from openai import OpenAI
 from app.services.ai_service import ai_service
@@ -373,8 +375,8 @@ async def ai_analyze_essay(
 
         logger.info(f"作文评价完成: essay_id={request.essay_id}, evaluation_id={evaluation.id}")
 
-        # 验证必需字段
-        required_fields = ["overall_evaluation", "typos", "typo_count", "grammar_errors", "grammar_error_count", "strengths", "improvement_suggestions"]
+        # 验证必需字段(根据新的JSON结构)
+        required_fields = ["overall_evaluation", "requirement_evaluation", "typos", "punctuation_errors", "grammar_errors", "highlights"]
         for field in required_fields:
             if field not in analysis:
                 raise ValueError(f"缺少字段: {field}")
@@ -418,32 +420,49 @@ async def ai_score_essay(
         # 如果有分析结果,将完整分析结果添加到提示词中
         analysis_context = ""
         if request.analysis:
+            # 根据新的JSON结构调整分析结果拼接
+            overall_eval = request.analysis.get("overall_evaluation", {})
+            typos = request.analysis.get("typos", [])
+            punctuation_errors = request.analysis.get("punctuation_errors", [])
+            grammar_errors = request.analysis.get("grammar_errors", [])
+            highlights = request.analysis.get("highlights", [])
+            requirement_eval = request.analysis.get("requirement_evaluation", [])
+
             analysis_context = f"""
 
 ## 作文分析结果(完整)
 
 以下是对本篇作文的详细分析结果,请在评分时充分参考:
 
-### 综合评价
-{json.dumps(request.analysis.get("overall_evaluation", {}), ensure_ascii=False, indent=2)}
+### 1. 综合评价
+**总评**: {overall_eval.get("summary", "")}
+**整体质量**: {overall_eval.get("quality_level", "")}
+**主要优点**:
+{json.dumps(overall_eval.get("main_strengths", []), ensure_ascii=False, indent=2)}
+**主要问题**:
+{json.dumps(overall_eval.get("main_issues", []), ensure_ascii=False, indent=2)}
 
-### 错别字详细列表(共 {request.analysis.get("typo_count", 0)} 个)
-{json.dumps(request.analysis.get("typos", []), ensure_ascii=False, indent=2)}
+### 2. 作文要求评价(共 {len(requirement_eval)} 条)
+{json.dumps(requirement_eval, ensure_ascii=False, indent=2)}
 
-### 语病详细列表(共 {request.analysis.get("grammar_error_count", 0)} 处)
-{json.dumps(request.analysis.get("grammar_errors", []), ensure_ascii=False, indent=2)}
+### 3. 错别字详细列表(共 {len(typos)} 个)
+{json.dumps(typos, ensure_ascii=False, indent=2)}
 
-### 优点亮点详细列表(共 {len(request.analysis.get("strengths", []))} 处)
-{json.dumps(request.analysis.get("strengths", []), ensure_ascii=False, indent=2)}
+### 4. 标点错误详细列表(共 {len(punctuation_errors)} 处)
+{json.dumps(punctuation_errors, ensure_ascii=False, indent=2)}
 
-### 改进建议详细列表(共 {len(request.analysis.get("improvement_suggestions", []))} 条)
-{json.dumps(request.analysis.get("improvement_suggestions", []), ensure_ascii=False, indent=2)}
+### 5. 病句详细列表(共 {len(grammar_errors)} 处)
+{json.dumps(grammar_errors, ensure_ascii=False, indent=2)}
+
+### 6. 好词好句详细列表(共 {len(highlights)} 处)
+{json.dumps(highlights, ensure_ascii=False, indent=2)}
 
 **评分要求**:
 - 请充分参考上述分析结果进行评分
-- 特别注意错别字和语病数量对"语言表达"维度的影响
-- 优点亮点应提升相应维度的分数
-- 改进建议指出的问题应在相应维度扣分
+- 特别注意错别字、标点错误和病句数量对"语言表达"维度的影响
+- 好词好句应提升相应维度的分数
+- 作文要求评价中指出的问题应在相应维度扣分
+- 综合评价中的主要问题应在对应维度扣分
 """
 
         # 构建完整用户提示词
@@ -495,7 +514,7 @@ async def ai_score_essay(
 
         dimensions = {}
         dimensions_sum = 0
-    
+
         def get_cn_dim_name(en_dim):
             dim_mapping = {
                 "theme_and_intent": "中心立意",
@@ -574,3 +593,327 @@ async def ai_score_essay(
             "success": False,
             "error": f"AI评分失败: {str(e)}"
         }
+
+
+@router.post("/complete-analysis", response_model=CompleteAnalysisResponse, summary="一站式作文批改")
+async def complete_analysis(
+    request: CompleteAnalysisRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    一站式作文批改接口
+    - 智能批次管理(相同题目和要求复用批次)
+    - 保存作文数据
+    - AI分析评价
+    - AI评分
+    - 返回完整批改结果
+    """
+    try:
+        from datetime import datetime
+
+        # ========== 步骤1: 批次管理 ==========
+        # 查找是否存在相同批次
+        existing_batch = db.query(Batch).filter(
+            Batch.essay_title == request.essay_title,
+            Batch.essay_requirement == request.essay_requirement,
+            Batch.status == 1
+        ).first()
+
+        if existing_batch:
+            batch = existing_batch
+            logger.info(f"复用现有批次: batch_id={batch.id}")
+        else:
+            # 创建新批次
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            batch = Batch(
+                directory_name=f"batch_{timestamp}",
+                essay_title=request.essay_title or "无题目",
+                essay_requirement=request.essay_requirement or "无要求",
+                essay_count=0,
+                status=1
+            )
+            db.add(batch)
+            db.flush()
+            logger.info(f"创建新批次: batch_id={batch.id}")
+
+        # 更新批次作文数量
+        batch.essay_count += 1
+
+        # ========== 步骤2: 保存作文数据 ==========
+        # 统计字数
+        word_count = len(request.essay_content.replace(' ', '').replace('\n', '').replace('\r', '').replace('\t', ''))
+
+        essay = Essay(
+            batch_id=batch.id,
+            student_name=request.student_name,
+            essay_content=request.essay_content,
+            essay_image_path=request.essay_image,
+            word_count=word_count,
+            score_system=request.score_system,
+            status=1
+        )
+        db.add(essay)
+        db.flush()
+        logger.info(f"作文保存成功: essay_id={essay.id}, word_count={word_count}")
+
+        # ========== 步骤3: AI分析 ==========
+        # 获取默认分析提示词
+        analyze_prompt = db.query(Prompt).filter(
+            Prompt.prompt_type == 'analyze',
+            Prompt.is_default == 1,
+            Prompt.status == 1
+        ).first()
+
+        if not analyze_prompt:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="未找到默认分析提示词"
+            )
+
+        # 创建OpenAI客户端
+        client = OpenAI(
+            base_url=settings.OPENAI_BASE_URL,
+            api_key=settings.OPENAI_API_KEY
+        )
+
+        # 构建分析提示词
+        user_prompt = analyze_prompt.prompt_content.format(
+            essay_title=request.essay_title or "无题目",
+            essay_requirement=request.essay_requirement or "无特定要求",
+            essay_content=request.essay_content,
+            word_count=word_count
+        )
+
+        system_prompt = """你是一位资深的语文教师和作文分析专家，拥有20年的教学经验。
+
+你的职责：
+1. 对作文进行全面、客观、细致的分析
+2. 准确识别错别字和语病
+3. 发现作文的优点和亮点
+4. 提出具体可行的改进建议
+
+分析原则：
+- 客观公正：基于事实进行分析
+- 具体详细：标注位置，给出实例
+- 建设性：提供可操作的改进建议
+- 鼓励为主：既指出问题也肯定优点
+
+输出规范：
+- 必须输出纯JSON格式，不要有任何额外文字
+- 不要使用markdown代码块标记
+- 严格按照指定的JSON结构输出"""
+
+        # 调用AI分析
+        response = client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.5,
+            max_tokens=4000
+        )
+
+        ai_response = response.choices[0].message.content.strip()
+
+        # 清理markdown标记
+        if ai_response.startswith("```json"):
+            ai_response = ai_response[7:]
+        if ai_response.startswith("```"):
+            ai_response = ai_response[3:]
+        if ai_response.endswith("```"):
+            ai_response = ai_response[:-3]
+        ai_response = ai_response.strip()
+
+        analysis_result = json.loads(ai_response)
+
+        # 保存评价记录
+        evaluation = Evaluation(
+            essay_id=essay.id,
+            user_phone=request.user_phone,
+            analyze_prompt_id=analyze_prompt.id,
+            evaluation_result=json.dumps(analysis_result, ensure_ascii=False),
+            is_latest=1,
+            status=1,
+            confirmed_genre_id=1,
+            confirmed_grade_id=1
+        )
+        db.add(evaluation)
+        db.flush()
+        logger.info(f"作文分析完成: evaluation_id={evaluation.id}")
+
+        # ========== 步骤4: AI评分 ==========
+        # 获取默认评分提示词
+        score_prompt = db.query(Prompt).filter(
+            Prompt.prompt_type == 'score',
+            Prompt.is_default == 1,
+            Prompt.status == 1
+        ).first()
+
+        if not score_prompt:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="未找到默认评分提示词"
+            )
+
+        # 构建评分上下文
+        overall_eval = analysis_result.get("overall_evaluation", {})
+        typos = analysis_result.get("typos", [])
+        punctuation_errors = analysis_result.get("punctuation_errors", [])
+        grammar_errors = analysis_result.get("grammar_errors", [])
+        highlights = analysis_result.get("highlights", [])
+        requirement_eval = analysis_result.get("requirement_evaluation", [])
+
+        analysis_context = f"""
+
+## 作文分析结果(完整)
+
+以下是对本篇作文的详细分析结果,请在评分时充分参考:
+
+### 1. 综合评价
+**总评**: {overall_eval.get("summary", "")}
+**整体质量**: {overall_eval.get("quality_level", "")}
+**主要优点**:
+{json.dumps(overall_eval.get("main_strengths", []), ensure_ascii=False, indent=2)}
+**主要问题**:
+{json.dumps(overall_eval.get("main_issues", []), ensure_ascii=False, indent=2)}
+
+### 2. 作文要求评价(共 {len(requirement_eval)} 条)
+{json.dumps(requirement_eval, ensure_ascii=False, indent=2)}
+
+### 3. 错别字详细列表(共 {len(typos)} 个)
+{json.dumps(typos, ensure_ascii=False, indent=2)}
+
+### 4. 标点错误详细列表(共 {len(punctuation_errors)} 处)
+{json.dumps(punctuation_errors, ensure_ascii=False, indent=2)}
+
+### 5. 病句详细列表(共 {len(grammar_errors)} 处)
+{json.dumps(grammar_errors, ensure_ascii=False, indent=2)}
+
+### 6. 好词好句详细列表(共 {len(highlights)} 处)
+{json.dumps(highlights, ensure_ascii=False, indent=2)}
+
+**评分要求**:
+- 请充分参考上述分析结果进行评分
+- 特别注意错别字、标点错误和病句数量对"语言表达"维度的影响
+- 好词好句应提升相应维度的分数
+- 作文要求评价中指出的问题应在相应维度扣分
+- 综合评价中的主要问题应在对应维度扣分
+"""
+
+        score_system_prompt = score_prompt.prompt_content.format(
+            essay_title=request.essay_title or "无题目",
+            essay_requirement=request.essay_requirement or "无特定要求",
+            essay_content=request.essay_content,
+            word_count=word_count
+        ) + analysis_context
+
+        score_user_prompt = """请按照要求进行评分"""
+
+        # 调用AI评分
+        score_response = client.chat.completions.create(
+            model=settings.OPENAI_MODEL,
+            messages=[
+                {"role": "system", "content": score_system_prompt},
+                {"role": "user", "content": score_user_prompt}
+            ],
+            temperature=0.3
+        )
+
+        score_ai_response = score_response.choices[0].message.content.strip()
+
+        # 清理markdown标记
+        if score_ai_response.startswith("```json"):
+            score_ai_response = score_ai_response[7:]
+        if score_ai_response.startswith("```"):
+            score_ai_response = score_ai_response[3:]
+        if score_ai_response.endswith("```"):
+            score_ai_response = score_ai_response[:-3]
+        score_ai_response = score_ai_response.strip()
+
+        scores = json.loads(score_ai_response)
+
+        # 计算总分
+        required_dimensions = ["theme_and_intent", "language_expression", "structure", "content_selection", "emotion_and_content"]
+        max_scores = {
+            "theme_and_intent": 20,
+            "language_expression": 25,
+            "structure": 15,
+            "content_selection": 15,
+            "emotion_and_content": 25
+        }
+
+        dimensions = {}
+        dimensions_sum = 0
+
+        for dim in required_dimensions:
+            if dim not in scores:
+                raise ValueError(f"缺少维度: {dim}")
+            score_value = float(scores[dim])
+            if score_value < 0 or score_value > max_scores[dim]:
+                raise ValueError(f"维度 {dim} 分数超出范围: {score_value}")
+            dimensions[dim] = {
+                "score": score_value,
+                "max_score": max_scores[dim]
+            }
+            dimensions_sum += score_value
+
+        # 根据分制计算总分
+        if request.score_system == 10:
+            total_score = int((dimensions_sum / 100) * 10)
+        else:
+            total_score = int((dimensions_sum / 100) * 40)
+
+        # 保存评分记录
+        score = Score(
+            evaluation_id=evaluation.id,
+            user_phone=request.user_phone,
+            score_prompt_id=score_prompt.id,
+            score_type='ai',
+            total_score=total_score,
+            dimension_scores=json.dumps(dimensions, ensure_ascii=False),
+            is_default=1,
+            status=1
+        )
+        db.add(score)
+
+        # 提交事务
+        db.commit()
+        db.refresh(evaluation)
+        db.refresh(score)
+
+        logger.info(f"一站式批改完成: essay_id={essay.id}, evaluation_id={evaluation.id}, total_score={total_score}")
+
+        # ========== 步骤5: 构建返回结果 ==========
+        complete_result = {
+            **analysis_result,
+            "total_score": total_score,
+            "evaluation_id": evaluation.id
+        }
+
+        return CompleteAnalysisResponse(
+            success=True,
+            evaluation_id=evaluation.id,
+            essay_id=essay.id,
+            batch_id=batch.id,
+            total_score=total_score,
+            analysis_result=complete_result
+        )
+
+    except HTTPException:
+        raise
+    except json.JSONDecodeError as e:
+        db.rollback()
+        logger.error(f"AI返回JSON解析失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"AI返回格式错误: {str(e)}"
+        )
+    except Exception as e:
+        db.rollback()
+        logger.error(f"一站式批改失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"作文批改失败: {str(e)}"
+        )
+

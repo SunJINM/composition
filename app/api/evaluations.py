@@ -447,7 +447,7 @@ async def ai_score_essay(
 """
 
         # 构建完整用户提示词
-        user_prompt = request.prompt.format(
+        system_prompt = request.prompt.format(
             essay_title=request.essay_title or "无题目",
             essay_requirement=request.essay_requirement or "无特定要求",
             essay_content=request.essay_content,
@@ -455,26 +455,8 @@ async def ai_score_essay(
         ) + analysis_context
 
         # 优化的系统提示词
-        system_prompt = """你是一位资深的语文教师和作文评分专家，拥有20年的教学经验。
+        user_prompt = """请按照要求进行评分"""
 
-你的职责：
-1. 严格按照评分标准对作文进行客观、公正的评价
-2. 参考各个分数段的具体标准，给出精准的分数
-3. 评分要有区分度，避免集中在某个分数段
-4. 既要看到优点，也要发现不足
-
-评分原则：
-- 客观性：基于文本内容，不受主观情感影响
-- 准确性：严格对照评分标准的每个层次
-- 一致性：保持评分尺度的统一和稳定
-- 公正性：对所有作文一视同仁
-
-输出规范：
-- 必须输出纯JSON格式，不要有任何额外文字
-- 不要使用markdown代码块标记
-- 分数必须是整数，且在规定范围内"""
-
-        print(user_prompt)
 
         # 调用AI接口
         response = client.chat.completions.create(

@@ -425,19 +425,19 @@ async def ai_score_essay(
 以下是对本篇作文的详细分析结果,请在评分时充分参考:
 
 ### 综合评价
-{json.dumps(request.analysis.get("综合评价", {}), ensure_ascii=False, indent=2)}
+{json.dumps(request.analysis.get("overall_evaluation", {}), ensure_ascii=False, indent=2)}
 
-### 错别字详细列表(共 {request.analysis.get("错别字总数", 0)} 个)
-{json.dumps(request.analysis.get("错别字", []), ensure_ascii=False, indent=2)}
+### 错别字详细列表(共 {request.analysis.get("typo_count", 0)} 个)
+{json.dumps(request.analysis.get("typos", []), ensure_ascii=False, indent=2)}
 
-### 语病详细列表(共 {request.analysis.get("语病总数", 0)} 处)
-{json.dumps(request.analysis.get("语病", []), ensure_ascii=False, indent=2)}
+### 语病详细列表(共 {request.analysis.get("grammar_error_count", 0)} 处)
+{json.dumps(request.analysis.get("grammar_errors", []), ensure_ascii=False, indent=2)}
 
-### 优点亮点详细列表(共 {len(request.analysis.get("优点亮点", []))} 处)
-{json.dumps(request.analysis.get("优点亮点", []), ensure_ascii=False, indent=2)}
+### 优点亮点详细列表(共 {len(request.analysis.get("strengths", []))} 处)
+{json.dumps(request.analysis.get("strengths", []), ensure_ascii=False, indent=2)}
 
-### 改进建议详细列表(共 {len(request.analysis.get("改进建议", []))} 条)
-{json.dumps(request.analysis.get("改进建议", []), ensure_ascii=False, indent=2)}
+### 改进建议详细列表(共 {len(request.analysis.get("improvement_suggestions", []))} 条)
+{json.dumps(request.analysis.get("improvement_suggestions", []), ensure_ascii=False, indent=2)}
 
 **评分要求**:
 - 请充分参考上述分析结果进行评分
@@ -473,6 +473,8 @@ async def ai_score_essay(
 - 必须输出纯JSON格式，不要有任何额外文字
 - 不要使用markdown代码块标记
 - 分数必须是整数，且在规定范围内"""
+
+        print(user_prompt)
 
         # 调用AI接口
         response = client.chat.completions.create(
@@ -585,6 +587,7 @@ async def ai_score_essay(
             "raw_response": ai_response
         }
     except Exception as e:
+        print(e)
         return {
             "success": False,
             "error": f"AI评分失败: {str(e)}"
